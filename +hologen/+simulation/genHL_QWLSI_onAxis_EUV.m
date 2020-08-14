@@ -32,7 +32,7 @@ CoordsAccuCtrl=0.0001;
 filenamestr=['F',num2str(f),'_T',num2str(T),'_wl',num2str(lambda)];
 filename=[filenamestr,'.gds'];
 filename = fullfile(cAppPath, '..', '..', 'Data','gds',filename);
-outputFile=OpenGDS(filename,filenamestr);
+outputFile=hologen.utils.OpenGDS(filename,filenamestr);
 incidentAngle=incidentAngle/180*pi;
 % R=tan(incidentAngle)*f/2;
 %  R=R/2;
@@ -177,7 +177,7 @@ for q=1:len
         xy(:,1)=xy(:,1)+offsetx;
         xy(:,2)=xy(:,2)+offsety;
         Np=size(xy,1)-1;%多边形顶点数
-        CreateBoundary(outputFile,xy',Np);
+        hologen.utils.CreateBoundary(outputFile,xy',Np);
     end
 end
 

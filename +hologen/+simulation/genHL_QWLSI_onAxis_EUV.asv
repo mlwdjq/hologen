@@ -182,7 +182,7 @@ for q=1:len
 end
 
 %% finish GDS
-hologen.utils.CloseGDS(outputFile);
+hologen.uitCloseGDS(outputFile);
 % end
 winopen(filename);
 

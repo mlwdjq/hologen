@@ -7,9 +7,10 @@ function genHL_LSI_onAxis_Visible()
 % mex CgetPolygonCoordsUsingPolarCoords.cpp
 %  mex CgetPolygonCoordsUsingAdjacentCoords.cpp
 % mex CgetPolygonCoordsUsingFlippedAdjacentCoords.cpp
-  % mex CgetBoundariesFromLabel.cpp
+% mex CgetBoundariesFromLabel.cpp
 % mex CsplitConcave.cpp
 % mex CreadCor.cpp
+
 cAppPath = fileparts(mfilename('fullpath'));
 %% parameter setting
 %current unit: mm
@@ -28,196 +29,206 @@ Ts(4,10)=16;
 Ts(5,10)=20;
 for i=5:5
     for j=10:10
-%         for k=1:5
-% i=1
-% j=5
-% k=5
-i=3;
-j=3;
-%             f=5+(i-1)*15;
-%             incidentAngle=6+2*(j-1)+10*(2-i);
-%             T=Ts(i,k);
-% k=5
-% f=5+(i-1)*15;
-% incidentAngle=6+2*(j-1)+10*(2-i);
-% T=Ts(i,k);
-f=fs(i);
-incidentAngle=6;
-T=Ts(i,j);
-db=10000000; %set unit to anstrom
-lambda=632.8e-6;
-delta=2*f*tan(asin(lambda/T));
-% NA=0.06;
-% R=f*tan(asin(NA));
-Nx=500;
-Ny=500;
-ringSampling=50;
-ringSamplingNum=Nx/ringSampling;
-% dire=1;
-DownSamplingAccuCtrl=0.001;
-CoordsAccuCtrl=0.0001;
-filenamestr=[num2str(i),num2str(j),'F',num2str(f),'_T',num2str(T)];
-filename=[filenamestr,'.gds'];
-filename = fullfile(cAppPath, '..', '..', 'Data','gds',filename);
-outputFile=OpenGDS(filename,filenamestr);
-incidentAngle=incidentAngle/180*pi;
-R=tan(incidentAngle)*f/2;
-% R=3.8;
-%  R=R/2;
-RingNum=(sqrt(f^2+R^2)-f)/lambda;
-divnum=2*floor(RingNum/ringSamplingNum)+1;
-dx=2*R/divnum;
-dy=2*R/divnum;
-% offset=f*tan(incidentAngle);
-% R=offset+R;
-Mx=divnum;
-My=divnum;
-fliped=divnum/2+1;
-offsetx=8*(i-1)*db;
-offsety=8*(j-1)*db;
-tic
-%  Mx=3;
-%  My=5;
-ceout=cell(Mx,My);
-parfor p=1:Mx
-    for q=1:My
-        ceout{p,q}=getCoords(lambda,delta,f,R,db,Nx,Ny,p,q,Mx,My,dx,dy,fliped,incidentAngle);
-    end
-end
-toc
-Ixy=[];
-uxy=[];
-Ixy0=[];
-sns=0;
-for p=1:Mx
-    for q=1:My
-        Ixy0=[Ixy0,ceout{p,q}.Ixy0];
-        Ixy=[Ixy,ceout{p,q}.Ixy];
-        if ~isempty(ceout{p,q}.uxy)
-        ceout{p,q}.uxy(:,4)=ceout{p,q}.uxy(:,4)+sns;
+        %         for k=1:5
+        % i=1
+        % j=5
+        % k=5
+        i=3;
+        j=3;
+        %             f=5+(i-1)*15;
+        %             incidentAngle=6+2*(j-1)+10*(2-i);
+        %             T=Ts(i,k);
+        % k=5
+        % f=5+(i-1)*15;
+        % incidentAngle=6+2*(j-1)+10*(2-i);
+        % T=Ts(i,k);
+        f=fs(i);
+        incidentAngle=6;
+        T=Ts(i,j);
+        db=10000000; %set unit to anstrom
+        lambda=632.8e-6;
+        delta=2*f*tan(asin(lambda/T));
+        % NA=0.06;
+        % R=f*tan(asin(NA));
+        Nx=500;
+        Ny=500;
+        obscuration =0.24; % central obscuration
+        ringSampling=50;
+        ringSamplingNum=Nx/ringSampling;
+        printResolution = 2e-3; % minimum printable feature
+        % dire=1;
+        DownSamplingAccuCtrl=0.001;
+        CoordsAccuCtrl=0.0001;
+        filenamestr=[num2str(i),num2str(j),'F',num2str(f),'_T',num2str(T)];
+        filename=[filenamestr,'.gds'];
+        filename = fullfile(cAppPath, '..', '..', 'Data','gds',filename);
+        outputFile=hologen.utils.OpenGDS(filename,filenamestr);
+        incidentAngle=incidentAngle/180*pi;
+        R=tan(incidentAngle)*f/2;
+        % R=3.8;
+        %  R=R/2;
+        RingNum=(sqrt(f^2+R^2)-f)/lambda;
+        divnum=2*floor(RingNum/ringSamplingNum)+1;
+        dx=2*R/divnum;
+        dy=2*R/divnum;
+        % offset=f*tan(incidentAngle);
+        % R=offset+R;
+        Mx=divnum;
+        My=divnum;
+        fliped=divnum/2+1;
+        offsetx=8*(i-1)*db;
+        offsety=8*(j-1)*db;
+        tic
+        %  Mx=3;
+        %  My=5;
+        th=8; % threshold for generating hololens
+        ceout=cell(Mx,My);
+        parfor_progress(Mx);
+        parfor p=1:Mx
+            parfor_progress;
+            for q=1:My
+                ceout{p,q}=getCoords(lambda,delta,f,R,db,Nx,Ny,p,q,Mx,My,dx,dy,fliped,incidentAngle,th);
+            end
         end
-        uxy=[uxy;ceout{p,q}.uxy];
-        sns=length(Ixy);
-    end
-end
-
-while ~isempty(uxy)
-    t=uxy(1,4);
-    temp=find(uxy(:,1)==uxy(1,1)&uxy(:,2)==uxy(1,2)&uxy(:,3)==uxy(1,3)&uxy(:,4)~=t);
-    if isempty(temp)
-        temp=find(uxy(:,1)==uxy(1,1)&uxy(:,2)==uxy(1,2)&uxy(:,3)==uxy(1,3)&uxy(:,4)==t);
-        if isempty(temp)
-            break;
+        parfor_progress(0);
+        toc
+        Ixy=[];
+        uxy=[];
+        Ixy0=[];
+        sns=0;
+        for p=1:Mx
+            for q=1:My
+                Ixy0=[Ixy0,ceout{p,q}.Ixy0];
+                Ixy=[Ixy,ceout{p,q}.Ixy];
+                if ~isempty(ceout{p,q}.uxy)
+                    ceout{p,q}.uxy(:,4)=ceout{p,q}.uxy(:,4)+sns;
+                end
+                uxy=[uxy;ceout{p,q}.uxy];
+                sns=length(Ixy);
+            end
         end
-%         if length(temp)==1
-%            uxy(:,:)=uxy([end,1:end-1],:);
-%            continue;
-%         end
-        uxy(temp,:)=[];
-        temp3=find(uxy(:,4)==t);
-        if isempty(temp3)
-            Ixy0(end+1)=Ixy(t);
+        
+        while ~isempty(uxy)
+            t=uxy(1,4);
+            temp=find(uxy(:,1)==uxy(1,1)&uxy(:,2)==uxy(1,2)&uxy(:,3)==uxy(1,3)&uxy(:,4)~=t);
+            if isempty(temp)
+                temp=find(uxy(:,1)==uxy(1,1)&uxy(:,2)==uxy(1,2)&uxy(:,3)==uxy(1,3)&uxy(:,4)==t);
+                if isempty(temp)
+                    break;
+                end
+                %         if length(temp)==1
+                %            uxy(:,:)=uxy([end,1:end-1],:);
+                %            continue;
+                %         end
+                uxy(temp,:)=[];
+                temp3=find(uxy(:,4)==t);
+                if isempty(temp3)
+                    Ixy0(end+1)=Ixy(t);
+                end
+                continue;
+            end
+            k=uxy(temp,4);
+            Ixy(t).xr=[Ixy(t).xr;Ixy(k).xr];
+            Ixy(t).yr=[Ixy(t).yr;Ixy(k).yr];
+            uxy(temp,:)=[];
+            uxy(1,:)=[];
+            temp2=find(uxy(:,4)==k);
+            if ~isempty(temp2)
+                uxy(temp2,4)=t;
+            end
+            temp3=find(uxy(:,4)==t);
+            if isempty(temp3)
+                Ixy0(end+1)=Ixy(t);
+            end
         end
-        continue;
-    end
-    k=uxy(temp,4);
-    Ixy(t).xr=[Ixy(t).xr;Ixy(k).xr];
-    Ixy(t).yr=[Ixy(t).yr;Ixy(k).yr];
-    uxy(temp,:)=[];
-    uxy(1,:)=[];
-    temp2=find(uxy(:,4)==k);
-    if ~isempty(temp2)
-        uxy(temp2,4)=t;
-    end
-    temp3=find(uxy(:,4)==t);
-    if isempty(temp3)
-        Ixy0(end+1)=Ixy(t);
-    end
-end
- 
-
-th=8;
-lambda=lambda*db;
-delta=delta*db;
-f=f*db;
-R=R*db;
-Rb=0.24*db;
-for t=length(Ixy0):-1:1
-    if ~all((Ixy0(t).xr).^2+(Ixy0(t).yr).^2>Rb.^2&(Ixy0(t).xr).^2+(Ixy0(t).yr).^2<=(R).^2)
-        Ixy0(t)=[];
-    end
-end
-%    Ixy0=Ixy0(28);
-len=length(Ixy0);
-for q=1:len
-    cxy=[Ixy0(q).xr,Ixy0(q).yr];
-    cxy=unique(cxy,'rows');
-    cn=length(cxy);
-    k=k+1;
-    cx=cxy(:,1);
-    cy=cxy(:,2);
-    B=hologen.utils.CgetBoundariesFromLabel2(cx,cy,cn,delta,f,lambda,th,incidentAngle,CoordsAccuCtrl);
-    % B=getBoundariesFromLabel(Ixy0s,delta,f,lambda,th,incidentAngle,CoordsAccuCtrl);
-    Bs=hologen.utils.CdownSamplingUsingRealCoords(B,lambda,delta,f,DownSamplingAccuCtrl);
-    for si=length(Bs):-1:1
-        %         plot(Bs{1}(:,1),Bs{1}(:,2)),hold on;
-        while 1
-            num=length(Bs{si});
-            angle=zeros(num,1);
-            for js=1:num
-                if js==1
-                    angle(1)=calAngle(Bs{si}(end,1),Bs{si}(end,2),Bs{si}(1,1),Bs{si}(1,2),Bs{si}(2,1),Bs{si}(2,2));
-                elseif js==num
-                    angle(num)=calAngle(Bs{si}(num-1,1),Bs{si}(num-1,2),Bs{si}(num,1),Bs{si}(num,2),Bs{si}(1,1),Bs{si}(1,2));
-                else
-                    angle(js)=calAngle(Bs{si}(js-1,1),Bs{si}(js-1,2),Bs{si}(js,1),Bs{si}(js,2),Bs{si}(js+1,1),Bs{si}(js+1,2));
+        
+        
+        
+        lambda=lambda*db;
+        delta=delta*db;
+        printResolution = printResolution*db;
+        f=f*db;
+        R=R*db;
+        Rb=obscuration*db;
+        for t=length(Ixy0):-1:1
+            if ~all((Ixy0(t).xr).^2+(Ixy0(t).yr).^2>Rb.^2&(Ixy0(t).xr).^2+(Ixy0(t).yr).^2<=(R).^2)
+                Ixy0(t)=[];
+            end
+        end
+        %    Ixy0=Ixy0(28);
+        len=length(Ixy0);
+        parfor_progress(len);
+        for q=1:len
+            parfor_progress;
+            cxy=[Ixy0(q).xr,Ixy0(q).yr];
+            cxy=unique(cxy,'rows');
+            cn=length(cxy);
+            k=k+1;
+            cx=cxy(:,1);
+            cy=cxy(:,2);
+            B=hologen.utils.CgetBoundariesFromLabel2(cx,cy,cn,delta,f,lambda,th,incidentAngle,CoordsAccuCtrl);
+            % B=getBoundariesFromLabel(Ixy0s,delta,f,lambda,th,incidentAngle,CoordsAccuCtrl);
+            Bs=hologen.utils.CdownSamplingUsingRealCoords(B,lambda,delta,f,DownSamplingAccuCtrl);
+            for si=length(Bs):-1:1
+                %         plot(Bs{1}(:,1),Bs{1}(:,2)),hold on;
+                while 1
+                    num=length(Bs{si});
+                    angle=zeros(num,1);
+                    for js=1:num
+                        if js==1
+                            angle(1)=calAngle(Bs{si}(end,1),Bs{si}(end,2),Bs{si}(1,1),Bs{si}(1,2),Bs{si}(2,1),Bs{si}(2,2));
+                        elseif js==num
+                            angle(num)=calAngle(Bs{si}(num-1,1),Bs{si}(num-1,2),Bs{si}(num,1),Bs{si}(num,2),Bs{si}(1,1),Bs{si}(1,2));
+                        else
+                            angle(js)=calAngle(Bs{si}(js-1,1),Bs{si}(js-1,2),Bs{si}(js,1),Bs{si}(js,2),Bs{si}(js+1,1),Bs{si}(js+1,2));
+                        end
+                    end
+                    da=diff([angle;angle(1)]);
+                    index=abs(da)>4;
+                    if sum(abs(angle)>3.1)>1
+                        index=index|abs(angle)>3.1;
+                    end
+                    Bs{si}(index,:)=[];
+                    [~,rss]=cart2pol(Bs{si}(:,1),Bs{si}(:,2));
+                    if max(rss)-min(rss)<printResolution
+                        Bs{si}=[];
+                    end
+                    if sum(index)==0||length(Bs{si})<3
+                        break;
+                    end
                 end
             end
-            da=diff([angle;angle(1)]);
-            index=abs(da)>4;
-            if sum(abs(angle)>3.1)>1
-                index=index|abs(angle)>3.1;
-            end
-            Bs{si}(index,:)=[];
-            [~,rss]=cart2pol(Bs{si}(:,1),Bs{si}(:,2));
-            if max(rss)-min(rss)<20000
-                Bs{si}=[];
-            end
-            if sum(index)==0||length(Bs{si})<3
-                break;
+            % Bs=CdownSamplingUsingRealCoords(Bs,lambda,delta,f,DownSamplingAccuCtrl);
+            
+            
+            
+            %% generate boundary
+            for ns=1:length(Bs)
+                xy=Bs{ns};
+                if isempty(xy)||size(xy,1)<3
+                    continue;
+                end
+                if (xy(1,1)^2+xy(1,2)^2)>R^2||(xy(1,1)^2+xy(1,2)^2)<Rb^2
+                    continue;
+                end
+                xy(end+1,:)=xy(1,:);
+                xy(:,1)=xy(:,1)+offsetx;
+                xy(:,2)=xy(:,2)+offsety;
+                Np=size(xy,1)-1;%多边形顶点数
+                hologen.utils.CreateBoundary(outputFile,xy',Np);
             end
         end
-    end
-% Bs=CdownSamplingUsingRealCoords(Bs,lambda,delta,f,DownSamplingAccuCtrl);
-    
-    
-    
-%% generate boundary
-    for ns=1:length(Bs)
-        xy=Bs{ns};
-        if isempty(xy)||size(xy,1)<3
-            continue;
-        end
-        if (xy(1,1)^2+xy(1,2)^2)>R^2||(xy(1,1)^2+xy(1,2)^2)<Rb^2
-            continue;
-        end
-        xy(end+1,:)=xy(1,:);
-        xy(:,1)=xy(:,1)+offsetx;
-        xy(:,2)=xy(:,2)+offsety;
-        Np=size(xy,1)-1;%多边形顶点数
-        CreateBoundary(outputFile,xy',Np);
+        
+        %% finish GDS
+        hologen.utils.CloseGDS(outputFile);
     end
 end
-
-%% finish GDS
-CloseGDS(outputFile);
-    end
-end
+parfor_progress(0);
 % end
-  winopen(filename);
+winopen(filename);
 
 
-function stout=getCoords(lambda,delta,f,R,db,Nx,Ny,p,q,Mx,My,dx,dy,fliped,incidentAngle)
+function stout=getCoords(lambda,delta,f,R,db,Nx,Ny,p,q,Mx,My,dx,dy,fliped,incidentAngle,th)
 lambda=lambda*db;
 delta=delta*db;
 f=f*db;
@@ -238,12 +249,12 @@ Ry(2)=Ry+dy;
 rs=sqrt(r*R);
 xs=rs.*cos(TH);
 ys=rs.*sin(TH);
-stout=getBoundaries(xs,ys,delta,f,lambda,incidentAngle,p,q,Mx,My);
+stout=getBoundaries(xs,ys,delta,f,lambda,incidentAngle,p,q,Mx,My,th);
 
 
 
 
-function stout=getBoundaries(xs,ys,delta,f,lambda,incidentAngle,p,q,Mx,My)
+function stout=getBoundaries(xs,ys,delta,f,lambda,incidentAngle,p,q,Mx,My,th)
 % global Ixy0 Ixy uxy sns
 Ixy=[];
 Ixy0=[];
@@ -257,7 +268,6 @@ sns=1;
 I=getIntensity(xs,ys,delta,f,lambda,incidentAngle);
 [sr,sc]=size(xs);
 I0=I;
-th=8;
 deltas=0.1;
 % mask=zeros(size(I));
 % mask(2:end-1,2:end-1)=1;
@@ -282,9 +292,9 @@ for i=1:num
             df=df(1)+1;
             uxy(end+1,1:4)=[p,q-0.5,temp(df),sns];
         end
-%     else
-%         xu(1)=0;
-%         yu(1)=0;
+        %     else
+        %         xu(1)=0;
+        %         yu(1)=0;
     end
     %down
     temp=find(L(end,:)==i);
@@ -295,9 +305,9 @@ for i=1:num
             df=df(1)+1;
             uxy(end+1,1:4)=[p,q+0.5,temp(df),sns];
         end
-%     else
-%         xu(2)=0;
-%         yu(2)=0;
+        %     else
+        %         xu(2)=0;
+        %         yu(2)=0;
     end
     %left
     temp=find(L(:,1)==i);
@@ -308,9 +318,9 @@ for i=1:num
             df=df(1)+1;
             uxy(end+1,1:4)=[p-0.5,q,temp(df),sns];
         end
-%     else
-%         xu(3)=0;
-%         yu(3)=0;
+        %     else
+        %         xu(3)=0;
+        %         yu(3)=0;
     end
     %right
     temp=find(L(:,end)==i);
@@ -321,9 +331,9 @@ for i=1:num
             df=df(1)+1;
             uxy(end+1,1:4)=[p+0.5,q,temp(df),sns];
         end
-%     else
-%         xu(4)=0;
-%         yu(4)=0;
+        %     else
+        %         xu(4)=0;
+        %         yu(4)=0;
     end
     if l==size(uxy,1)
         [y,x]=find(L0==i);
@@ -335,15 +345,15 @@ for i=1:num
         Ixy(end+1).xr=xs((x-1)*sr+y);
         Ixy(end).yr=ys((x-1)*sr+y);
     end
-%     sns(xynum+i,1)=sn;
-%     uxy(xynum+i,1:16)=[xu,yu];
+    %     sns(xynum+i,1)=sn;
+    %     uxy(xynum+i,1:16)=[xu,yu];
 end
 stout.Ixy=Ixy;
 stout.Ixy0=Ixy0;
 stout.uxy=uxy;
 stout.sns=sns;
 
-   
+
 
 function B=getBoundariesFromLabel(Ixy0,delta,f,lambda,th,incidentAngle,CoordsAccuCtrl)
 % global stopsign
@@ -351,13 +361,13 @@ function B=getBoundariesFromLabel(Ixy0,delta,f,lambda,th,incidentAngle,CoordsAcc
 T=lambda/sin(atan(delta/f/2));
 num=length(Ixy0);
 if num>1
-B=cell(num,1);
+    B=cell(num,1);
 end
 k=1;
 for i=1:num
-%     [y,x]=find(L==i);
-%     bx=find(x==1|x==sc);
-%     by=find((x~=1&x~=sc)&(y==1|y==sr));
+    %     [y,x]=find(L==i);
+    %     bx=find(x==1|x==sc);
+    %     by=find((x~=1&x~=sc)&(y==1|y==sr));
     xr=Ixy0(i).xr;
     yr=Ixy0(i).yr;
     [ths,rs]=cart2pol(xr,yr);
@@ -365,20 +375,20 @@ for i=1:num
         thsN=ths(ths<0);
         thsP=ths(ths>=0);
         if(2*pi+min(thsN)-max(thsP)< min(thsP)-max(thsN))
-        ths(ths<0)=ths(ths<0)+2*pi;
+            ths(ths<0)=ths(ths<0)+2*pi;
         end
     end
     th0=mean(ths);
     r0=mean(rs);
     x0=mean(xr);
     y0=mean(yr);
-%     [x0,y0]=pol2cart(th0,r0);
-%      th0
-%      r0
+    %     [x0,y0]=pol2cart(th0,r0);
+    %      th0
+    %      r0
     [xr,yr]=getAccurateCoords(xr,yr,ths,rs,x0,y0,delta,f,lambda,th,incidentAngle,CoordsAccuCtrl);
-%     if i==19
-%            plot(xr,yr,'.'),hold on,pause(0.01)
-%     end
+    %     if i==19
+    %            plot(xr,yr,'.'),hold on,pause(0.01)
+    %     end
     if length(xr)<3
         continue;
     end
@@ -401,9 +411,9 @@ for i=1:num
             tempt=min(thsN);
             tempr=rs(ths==min(thsN));
         end
-%          (2*pi+min(thsN)-max(thsP))<90*pi/180
-
-%         [xr,yr]=pol2cart(tempt,tempr);
+        %          (2*pi+min(thsN)-max(thsP))<90*pi/180
+        
+        %         [xr,yr]=pol2cart(tempt,tempr);
     end
     dire=1;
     [thmin,~]=min(ths);
@@ -430,11 +440,11 @@ for i=1:num
     if div>3*r0*pi/180
         div=3*r0*pi/180;
     end
-%     if i==61
-%         l
-%         div
-%     end
-%      rd=(max(rs)-min(rs));
+    %     if i==61
+    %         l
+    %         div
+    %     end
+    %      rd=(max(rs)-min(rs));
     if l>div
         Ns=ceil(l/div);
         for m=1:Ns
@@ -444,7 +454,7 @@ for i=1:num
                 indexm=ths>=thmax-(thmax-thmin)*m/Ns;
             end
             xm=xr(indexm);
-%              lw=(max(rs(ths<=thmin+(thmax-thmin)*m/Ns))-min(rs(ths<=thmin+(thmax-thmin)*m/Ns)))/rd;
+            %              lw=(max(rs(ths<=thmin+(thmax-thmin)*m/Ns))-min(rs(ths<=thmin+(thmax-thmin)*m/Ns)))/rd;
             if length(xm)<5&&m~=Ns||length(xm)<3%||(lw<0.1)
                 continue;
             end
@@ -455,28 +465,28 @@ for i=1:num
             [thm,rm]=cart2pol(xm,ym);
             if angM
                 %                 thm(thm<-pi/2)=thm(thm<-pi/2)+2*pi;
-%                 thsN=thm(thm<0);
-%                 thsP=thm(thm>=0);
-%                 if(2*pi+min(thsN)-max(thsP)< min(thsP)-max(thsN))
-                    thm(thm<0)=thm(thm<0)+2*pi;
-%                 end
+                %                 thsN=thm(thm<0);
+                %                 thsP=thm(thm>=0);
+                %                 if(2*pi+min(thsN)-max(thsP)< min(thsP)-max(thsN))
+                thm(thm<0)=thm(thm<0)+2*pi;
+                %                 end
             end
             %             if i==104&&m==4
             %                 s=1;
             %             end
-%             if i==61
-%                 s=1
-%             end
+            %             if i==61
+            %                 s=1
+            %             end
             [xm,ym]=sortCoods(xm,ym,thm,rm,1);
             [thm,rm]=cart2pol(xm,ym);
-%             
+            %
             if angM
-% %                 thm(thm<-pi/2)=thm(thm<-pi/2)+2*pi;
-%                 thsN=thm(thm<0);
-%                 thsP=thm(thm>=0);
-%                 if(2*pi+min(thsN)-max(thsP)< min(thsP)-max(thsN))
-                    thm(thm<0)=thm(thm<0)+2*pi;
-%                 end
+                % %                 thm(thm<-pi/2)=thm(thm<-pi/2)+2*pi;
+                %                 thsN=thm(thm<0);
+                %                 thsP=thm(thm>=0);
+                %                 if(2*pi+min(thsN)-max(thsP)< min(thsP)-max(thsN))
+                thm(thm<0)=thm(thm<0)+2*pi;
+                %                 end
             end
             if dire==1
                 [~,Im]=max(thm);
@@ -485,7 +495,7 @@ for i=1:num
             end
             switch Im
                 case 1
-%                     if abs(rm(1)-rm(2))>abs(rm(Im)-rm(end))
+                    %                     if abs(rm(1)-rm(2))>abs(rm(Im)-rm(end))
                     if getIntensity((xm(Im)+xm(Im+1))/2,(ym(Im)+ym(Im+1))/2,delta,f,lambda,incidentAngle)>getIntensity((xm(Im)+xm(end))/2,(ym(Im)+ym(end))/2,delta,f,lambda,incidentAngle)
                         xr(end+1,1)=xm(1);
                         xr(end+1,1)=xm(2);
@@ -502,7 +512,7 @@ for i=1:num
                         ths(end+1,1)=thm(end);
                     end
                 case length(thm)
-%                     if abs(rm(end)-rm(1))>abs(rm(end)-rm(end-1))
+                    %                     if abs(rm(end)-rm(1))>abs(rm(end)-rm(end-1))
                     if getIntensity((xm(Im)+xm(1))/2,(ym(Im)+ym(1))/2,delta,f,lambda,incidentAngle)>getIntensity((xm(Im)+xm(Im-1))/2,(ym(Im)+ym(Im-1))/2,delta,f,lambda,incidentAngle)
                         xr(end+1,1)=xm(end);
                         xr(end+1,1)=xm(1);
@@ -519,7 +529,7 @@ for i=1:num
                         ths(end+1,1)=thm(end-1);
                     end
                 otherwise
-%                     if abs(rm(Im)-rm(Im+1))>abs(rm(Im)-rm(Im-1))
+                    %                     if abs(rm(Im)-rm(Im+1))>abs(rm(Im)-rm(Im-1))
                     if getIntensity((xm(Im)+xm(Im+1))/2,(ym(Im)+ym(Im+1))/2,delta,f,lambda,incidentAngle)>getIntensity((xm(Im)+xm(Im-1))/2,(ym(Im)+ym(Im-1))/2,delta,f,lambda,incidentAngle)
                         xr(end+1,1)=xm(Im);
                         xr(end+1,1)=xm(Im+1);
@@ -589,25 +599,25 @@ for i=1:num
             B{k,1}=[xm,ym];
             k=k+1;
             if m==Ns&&(tempt(1)~=0||tempr(1)~=0)
-%                  [xt,yt]=pol2cart(tempt,tempr);
-                 xr(end+1:end+2)=tempt;
-                 yr(end+1:end+2)=tempr;
-                 [ths,rs]=cart2pol(xr,yr);
-                 [xr,yr]=sortCoods(xr,yr,ths,rs,0);
-                 B{k}=[xr,yr];
-                 k=k+1;
+                %                  [xt,yt]=pol2cart(tempt,tempr);
+                xr(end+1:end+2)=tempt;
+                yr(end+1:end+2)=tempr;
+                [ths,rs]=cart2pol(xr,yr);
+                [xr,yr]=sortCoods(xr,yr,ths,rs,0);
+                B{k}=[xr,yr];
+                k=k+1;
             end
-%             if stopsign==1
-%                      plot(xm,ym),hold on;pause(0.01)
-%             end
+            %             if stopsign==1
+            %                      plot(xm,ym),hold on;pause(0.01)
+            %             end
         end
     else
         [xr,yr]=sortCoods(xr,yr,ths,rs,1);
         B{k,1}=[xr,yr];
         k=k+1;
-%         if stopsign==1
-%             plot(xr,yr),hold on;pause(0.01)
-%         end
+        %         if stopsign==1
+        %             plot(xr,yr),hold on;pause(0.01)
+        %         end
     end
 end
 for n=num:-1:k
@@ -642,8 +652,8 @@ if method==1
         sc=true;
     end
     if sum(index)<=1||sum(index)>=length(index)-3||sc
-    [xr,yr]=sortCoods(xr,yr,ths,rs,0);
-    return;
+        [xr,yr]=sortCoods(xr,yr,ths,rs,0);
+        return;
     end
     th1=ths(index);
     xr1=xr(index);
@@ -666,7 +676,7 @@ else
     [~,Index]=sort(th);
     xr=xr(Index);
     yr=yr(Index);
-%     plot(xr,yr),pause(2)
+    %     plot(xr,yr),pause(2)
 end
 
 
@@ -745,7 +755,7 @@ end
 xr=xr+x0;
 yr=yr+y0;
 rs=sqrt(xr.^2+yr.^2);
- 
+
 % Index=abs(getIntensity((xr+xr0)/2,(yr+yr0)/2,delta,f,lambda,incidentAngle)-th)>abs(getIntensity(xr0,yr0,delta,f,lambda,incidentAngle)-th);
 % xr(Index)=xr0(Index);
 % yr(Index)=yr0(Index);
@@ -786,9 +796,9 @@ for i=1:N
     convex=find(angle*sign<0);
     while ~isempty(convex)&&length(angle)>2
         
-%         if k==434
-%         s=1;
-%     end
+        %         if k==434
+        %         s=1;
+        %     end
         %          if i==61
         %          figure(1),plot(B{i}(:,1),B{i}(:,2))
         %          end

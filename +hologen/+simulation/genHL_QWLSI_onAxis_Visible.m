@@ -24,6 +24,8 @@ delta=2*f*tan(asin(lambda/T));
 % R=f*tan(asin(NA));
 Nx=500;
 Ny=500;
+printResolution = 2e-3; % minimum printable feature 
+obscuration =0.24; % central obscuration
 ringSampling=50;
 ringSamplingNum=Nx/ringSampling;
 % dire=1;
@@ -32,7 +34,7 @@ CoordsAccuCtrl=0.0001;
 filenamestr=['F',num2str(f),'_T',num2str(T)];
 filename=[filenamestr,'.gds'];
 filename = fullfile(cAppPath, '..', '..', 'Data','gds',filename);
-outputFile=OpenGDS(filename,filenamestr);
+outputFile=hologen.utils.OpenGDS(filename,filenamestr);
 incidentAngle=incidentAngle/180*pi;
 R=tan(incidentAngle)*f/2;
 % R=3.8;
@@ -54,11 +56,14 @@ tic
 %  My=5;
 
 ceout=cell(Mx,My);
+parfor_progress(Mx);
 parfor p=1:Mx
+    parfor_progress;
     for q=1:My
         ceout{p,q}=getCoords(lambda,delta,f,R,db,Nx,Ny,p,q,Mx,My,dx,dy,fliped,incidentAngle,th);
     end
 end
+parfor_progress(0);
 toc
 Ixy=[];
 uxy=[];
@@ -114,7 +119,8 @@ lambda=lambda*db;
 delta=delta*db;
 f=f*db;
 R=R*db;
-Rb=0.24*db;
+Rb=obscuration*db;
+printResolution =printResolution*db; 
 for t=length(Ixy0):-1:1
     if ~all((Ixy0(t).xr).^2+(Ixy0(t).yr).^2>Rb.^2&(Ixy0(t).xr).^2+(Ixy0(t).yr).^2<=(R).^2)
         Ixy0(t)=[];
@@ -122,7 +128,9 @@ for t=length(Ixy0):-1:1
 end
 %    Ixy0=Ixy0(28);
 len=length(Ixy0);
+parfor_progress(len);
 for q=1:len
+    parfor_progress;
     cxy=[Ixy0(q).xr,Ixy0(q).yr];
     cxy=unique(cxy,'rows');
     cn=length(cxy);
@@ -153,7 +161,7 @@ for q=1:len
             end
             Bs{si}(index,:)=[];
             [~,rss]=cart2pol(Bs{si}(:,1),Bs{si}(:,2));
-            if max(rss)-min(rss)<20000
+            if max(rss)-min(rss)<printResolution
                 Bs{si}=[];
             end
             if sum(index)==0||length(Bs{si})<3
@@ -178,12 +186,12 @@ for q=1:len
         xy(:,1)=xy(:,1)+offsetx;
         xy(:,2)=xy(:,2)+offsety;
         Np=size(xy,1)-1;%多边形顶点数
-        CreateBoundary(outputFile,xy',Np);
+        hologen.utils.CreateBoundary(outputFile,xy',Np);
     end
 end
-
+parfor_progress(0);
 %% finish GDS
-CloseGDS(outputFile);
+hologen.utils.CloseGDS(outputFile);
 % end
 winopen(filename);
 

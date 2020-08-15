@@ -16,7 +16,7 @@ function genHL_QWLSI_onAxis_EUV()
 cAppPath = fileparts(mfilename('fullpath'));
 f=3; % lens focal length
 incidentAngle=6; % offset angle
-T=0.540; % grating pitch
+T=0.54; % grating pitch
 db=10000000; %set unit to anstrom
 lambda=13.5e-6; % wavelength
 delta=2*f*tan(asin(lambda/T));
@@ -24,11 +24,13 @@ NA=0.0875;
 R=f*tan(asin(NA)); % lens radius
 Nx=500;
 Ny=500;
+obscuration =0; % central obscuration
+printResolution = 1e-6; % minimum printable feature 
 ringSampling=50;
 ringSamplingNum=Nx/ringSampling;
 % dire=1;
-DownSamplingAccuCtrl=0.001;
-CoordsAccuCtrl=0.0001;
+DownSamplingAccuCtrl=0.001; % ratio
+CoordsAccuCtrl=0.0001; % intensity
 filenamestr=['F',num2str(f),'_T',num2str(T),'_wl',num2str(lambda)];
 filename=[filenamestr,'.gds'];
 filename = fullfile(cAppPath, '..', '..', 'Data','gds',filename);
@@ -53,11 +55,14 @@ tic
 %  My=5;
 
 ceout=cell(Mx,My);
+parfor_progress(Mx);
 parfor p=1:Mx
+    parfor_progress;
     for q=1:My
         ceout{p,q}=getCoords(lambda,delta,f,R,db,Nx,Ny,p,q,Mx,My,dx,dy,fliped,incidentAngle,th);
     end
 end
+parfor_progress(0);
 toc
 Ixy=[];
 uxy=[];
@@ -110,10 +115,11 @@ while ~isempty(uxy)
 end
 
 lambda=lambda*db;
+printResolution = printResolution*db;
 delta=delta*db;
 f=f*db;
 R=R*db;
-Rb=0*db;
+Rb=obscuration*db;
 for t=length(Ixy0):-1:1
     if ~all((Ixy0(t).xr).^2+(Ixy0(t).yr).^2>Rb.^2&(Ixy0(t).xr).^2+(Ixy0(t).yr).^2<=(R).^2)
         Ixy0(t)=[];
@@ -121,7 +127,9 @@ for t=length(Ixy0):-1:1
 end
 %    Ixy0=Ixy0(28);
 len=length(Ixy0);
+parfor_progress(len);
 for q=1:len
+    parfor_progress;
     cxy=[Ixy0(q).xr,Ixy0(q).yr];
     cxy=unique(cxy,'rows');
     cn=length(cxy);
@@ -152,7 +160,7 @@ for q=1:len
             end
             Bs{si}(index,:)=[];
             [~,rss]=cart2pol(Bs{si}(:,1),Bs{si}(:,2));
-            if max(rss)-min(rss)<20000
+            if max(rss)-min(rss)<printResolution
                 Bs{si}=[];
             end
             if sum(index)==0||length(Bs{si})<3
@@ -180,6 +188,7 @@ for q=1:len
         hologen.utils.CreateBoundary(outputFile,xy',Np);
     end
 end
+parfor_progress(0);
 
 %% finish GDS
 hologen.utils.CloseGDS(outputFile);

@@ -16,19 +16,20 @@ function genHL_QWLSI_onAxis_EUV()
 cAppPath = fileparts(mfilename('fullpath'));
 f=3; % lens focal length
 incidentAngle=6; % offset angle
-T=0.540; % grating pitch
+T=0.1; % grating pitch
 db=10000000; %set unit to anstrom
-lambda=13.5e-6; % wavelength
+lambda=100e-6; % wavelength
 delta=2*f*tan(asin(lambda/T));
 NA=0.0875; 
 R=f*tan(asin(NA)); % lens radius
 Nx=500;
 Ny=500;
+printResolution = 1e-6; % minimum printable feature 
 ringSampling=50;
 ringSamplingNum=Nx/ringSampling;
 % dire=1;
-DownSamplingAccuCtrl=0.001;
-CoordsAccuCtrl=0.0001;
+DownSamplingAccuCtrl=0.001; % ratio
+CoordsAccuCtrl=0.0001; % intensity
 filenamestr=['F',num2str(f),'_T',num2str(T),'_wl',num2str(lambda)];
 filename=[filenamestr,'.gds'];
 filename = fullfile(cAppPath, '..', '..', 'Data','gds',filename);
@@ -110,6 +111,7 @@ while ~isempty(uxy)
 end
 
 lambda=lambda*db;
+printResolution = printResolution*db;
 delta=delta*db;
 f=f*db;
 R=R*db;
@@ -152,7 +154,7 @@ for q=1:len
             end
             Bs{si}(index,:)=[];
             [~,rss]=cart2pol(Bs{si}(:,1),Bs{si}(:,2));
-            if max(rss)-min(rss)<20000
+            if max(rss)-min(rss)<printResolution
                 Bs{si}=[];
             end
             if sum(index)==0||length(Bs{si})<3
@@ -182,7 +184,7 @@ for q=1:len
 end
 
 %% finish GDS
-hologen.uitCloseGDS(outputFile);
+hologen.utils.CloseGDS(outputFile);
 % end
 winopen(filename);
 

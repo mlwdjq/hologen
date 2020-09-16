@@ -519,8 +519,8 @@ void getBoundariesFromLabel(double *xs,double *ys,double delta,double f,double l
             div=T/5;
         else
             div=T/10;
-        if (div>(dmax(rs,0,Ns)-dmin(rs,0,Ns))*5)
-            div=(dmax(rs,0,Ns)-dmin(rs,0,Ns))*5;
+        if (div>(dmax(rs,0,Ns)-dmin(rs,0,Ns))*10)
+            div=(dmax(rs,0,Ns)-dmin(rs,0,Ns))*10;
         
         if (div>3*r0*PI/180)
             div=3*r0*PI/180;

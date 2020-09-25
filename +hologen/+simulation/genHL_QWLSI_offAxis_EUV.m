@@ -1,4 +1,4 @@
-function genHL_QWLSI_onAxis_EUV()
+function genHL_QWLSI_offAxis_EUV()
 %%this version can generate polygon having more than 4 sides.
 
 %  mex CgetPolygonCoords.cpp
@@ -20,8 +20,19 @@ T=0.54; % grating pitch
 db=10000000; %set unit to anstrom
 lambda=13.5e-6; % wavelength
 delta=2*f*tan(asin(lambda/T));
-NA=0.0875; 
-R=f*tan(asin(NA)); % lens radius
+NA=0.0875;
+Axis = 'on';
+switch Axis
+    case 'on'
+        xOffset = 0; % offset of the lens center
+        yOffset = 0;
+    case 'off'
+        xOffset = f*tand(incidentAngle);
+        yOffset = 0;
+end
+subR=f*tan(asin(NA)); % lens radius
+R=subR+sqrt(xOffset.^2+yOffset.^2); % parent lens radius
+
 Nx=500;
 Ny=500;
 obscuration =0; % central obscuration
@@ -31,7 +42,7 @@ ringSamplingNum=Nx/ringSampling;
 % dire=1;
 DownSamplingAccuCtrl=0.001; % ratio
 CoordsAccuCtrl=0.0001; % intensity
-filenamestr=['F',num2str(f),'_T',num2str(T),'_wl',num2str(lambda)];
+filenamestr=[Axis,'Axis','F',num2str(f),'_T',num2str(T),'_wl',num2str(lambda)];
 filename=[filenamestr,'.gds'];
 filename = fullfile(cAppPath, '..', '..', 'Data','gds',filename);
 outputFile=hologen.utils.OpenGDS(filename,filenamestr);
@@ -47,22 +58,23 @@ dy=2*R/divnum;
 Mx=divnum;
 My=divnum;
 fliped=divnum/2+1;
-offsetx=8*0*db; % offset of the lens center
-offsety=8*0*db;
+xShift=8*0*db; % coordinates shift in gds
+yShift=8*0*db;
+
 th=32; % threshold for generating hololens
 tic
 %  Mx=3;
 %  My=5;
 
 ceout=cell(Mx,My);
-% parfor_progress(Mx);
+parfor_progress(Mx);
 parfor p=1:Mx
-%     parfor_progress;
+    parfor_progress;
     for q=1:My
-        ceout{p,q}=getCoords(lambda,delta,f,R,db,Nx,Ny,p,q,Mx,My,dx,dy,fliped,incidentAngle,th);
+        ceout{p,q}=getCoords(lambda,delta,f,R,subR,xOffset,yOffset,db,Nx,Ny,p,q,Mx,My,dx,dy,fliped,incidentAngle,th);
     end
 end
-% parfor_progress(0);
+parfor_progress(0);
 toc
 Ixy=[];
 uxy=[];
@@ -70,16 +82,18 @@ Ixy0=[];
 sns=0;
 for p=1:Mx
     for q=1:My
-        Ixy0=[Ixy0,ceout{p,q}.Ixy0];
-        Ixy=[Ixy,ceout{p,q}.Ixy];
-        if ~isempty(ceout{p,q}.uxy)
-            ceout{p,q}.uxy(:,4)=ceout{p,q}.uxy(:,4)+sns;
+        if ~isempty(ceout{p,q})
+            Ixy0=[Ixy0,ceout{p,q}.Ixy0];
+            Ixy=[Ixy,ceout{p,q}.Ixy];
+            if ~isempty(ceout{p,q}.uxy)
+                ceout{p,q}.uxy(:,4)=ceout{p,q}.uxy(:,4)+sns;
+            end
+            uxy=[uxy;ceout{p,q}.uxy];
+            sns=length(Ixy);
         end
-        uxy=[uxy;ceout{p,q}.uxy];
-        sns=length(Ixy);
     end
 end
-
+% stitching splitted shapes and seperate each shape
 while ~isempty(uxy)
     t=uxy(1,4);
     temp=find(uxy(:,1)==uxy(1,1)&uxy(:,2)==uxy(1,2)&uxy(:,3)==uxy(1,3)&uxy(:,4)~=t);
@@ -118,18 +132,22 @@ lambda=lambda*db;
 printResolution = printResolution*db;
 delta=delta*db;
 f=f*db;
-R=R*db;
+% R=R*db;
+xOffset = xOffset*db;
+yOffset = yOffset*db;
+subR=subR*db;
 Rb=obscuration*db;
 for t=length(Ixy0):-1:1
-    if ~all((Ixy0(t).xr).^2+(Ixy0(t).yr).^2>Rb.^2&(Ixy0(t).xr).^2+(Ixy0(t).yr).^2<=(R).^2)
+    if ~all((Ixy0(t).xr-xOffset).^2+(Ixy0(t).yr-yOffset).^2>Rb.^2&...
+            (Ixy0(t).xr-xOffset).^2+(Ixy0(t).yr-yOffset).^2<=(subR).^2)
         Ixy0(t)=[];
     end
 end
 %    Ixy0=Ixy0(28);
 len=length(Ixy0);
-% parfor_progress(len);
+parfor_progress(len);
 for q=1:len
-%     parfor_progress;
+    parfor_progress;
     cxy=[Ixy0(q).xr,Ixy0(q).yr];
     cxy=unique(cxy,'rows');
     cn=length(cxy);
@@ -187,12 +205,12 @@ for q=1:len
         if isempty(xy)||size(xy,1)<3
             continue;
         end
-        if (xy(1,1)^2+xy(1,2)^2)>R^2||(xy(1,1)^2+xy(1,2)^2)<Rb^2
+        if ((xy(1,1)-xOffset)^2+(xy(1,2)-yOffset)^2)>subR^2||((xy(1,1)-xOffset)^2+(xy(1,2)-yOffset)^2)<Rb^2
             continue;
         end
         xy(end+1,:)=xy(1,:);
-        xy(:,1)=xy(:,1)+offsetx;
-        xy(:,2)=xy(:,2)+offsety;
+        xy(:,1)=xy(:,1)+xShift;
+        xy(:,2)=xy(:,2)+yShift;
         Np=size(xy,1)-1;%多边形顶点数
         hologen.utils.CreateBoundary(outputFile,xy',Np);
     end
@@ -205,12 +223,15 @@ hologen.utils.CloseGDS(outputFile);
 winopen(filename);
 
 
-function stout=getCoords(lambda,delta,f,R,db,Nx,Ny,p,q,Mx,My,dx,dy,fliped,incidentAngle,th)
+function stout=getCoords(lambda,delta,f,R,subR,xOffset,yOffset,db,Nx,Ny,p,q,Mx,My,dx,dy,fliped,incidentAngle,th)
 lambda=lambda*db;
 delta=delta*db;
 f=f*db;
 % offset=f*tan(incidentAngle);
 R=R*db;
+subR=subR*db;
+xOffset = xOffset*db;
+yOffset = yOffset*db;
 % T=lambda/sin(atan(delta/f/2));
 % fliped=1.5;
 dx=db*dx;
@@ -226,7 +247,11 @@ Ry(2)=Ry+dy;
 rs=sqrt(r*R);
 xs=rs.*cos(TH);
 ys=rs.*sin(TH);
-stout=getBoundaries(xs,ys,delta,f,lambda,incidentAngle,p,q,Mx,My,th);
+if all((xs-xOffset).^2+(ys-yOffset).^2>subR^2)
+    stout =[];
+else
+    stout=getBoundaries(xs,ys,delta,f,lambda,incidentAngle,p,q,Mx,My,th);
+end
 
 
 

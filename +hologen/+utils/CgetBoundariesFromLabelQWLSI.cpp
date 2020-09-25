@@ -193,7 +193,7 @@ double getIntensity(double xs,double ys,double delta,double f,double lambda,doub
     double I=0,offset;//,pi=PI;//acos(-1);//delta1,delta2,T
     //T=lambda/sin(atan(delta/f/2));
     offset=f*tan(incidentAngle);
-   // ys=ys+offset;
+    // ys=ys+offset;
     //delta2=f*(tan(asin(sin(incidentAngle)+lambda/T)))-offset;
     //delta1=offset-f*(tan(asin(sin(incidentAngle)-lambda/T)));
     I=pow(cos(2*PI/lambda*sqrt(pow(xs-delta/2,2)+pow(ys-offset,2)+pow(f,2)))\
@@ -201,7 +201,7 @@ double getIntensity(double xs,double ys,double delta,double f,double lambda,doub
             +cos(2*PI/lambda*sqrt(pow(xs,2)+pow(ys-offset-delta/2,2)+pow(f,2)))\
             +cos(2*PI/lambda*sqrt(pow(xs,2)+pow(ys-offset+delta/2,2)+pow(f,2)))\
             +4*cos(2*PI/lambda*ys*sin(incidentAngle)),2)\
-           +pow(-sin(2*PI/lambda*sqrt(pow(xs-delta/2,2)+pow(ys-offset,2)+pow(f,2)))\
+            +pow(-sin(2*PI/lambda*sqrt(pow(xs-delta/2,2)+pow(ys-offset,2)+pow(f,2)))\
             -sin(2*PI/lambda*sqrt(pow(xs+delta/2,2)+pow(ys-offset,2)+pow(f,2)))\
             -sin(2*PI/lambda*sqrt(pow(xs,2)+pow(ys-offset-delta/2,2)+pow(f,2)))\
             -sin(2*PI/lambda*sqrt(pow(xs,2)+pow(ys-offset+delta/2,2)+pow(f,2)))\
@@ -320,10 +320,12 @@ void sortCoods(double *xr,double *yr,double *ths,double *rs,long Ns){
     ravg=mean(rs,Ns);
     Sths= (double*) malloc(Ns * sizeof(double));
     Srs= (double*) malloc(Ns * sizeof(double));
+     
     if ((rmin-ravg)*(rmax-ravg)>0&&\
             ((fabs(rmin-ravg)/(ravg-dmin(rs,0,Ns))>1/3.0&&fabs(rmax-ravg)/(ravg-dmin(rs,0,Ns))>1/3.0)||\
             (fabs(rmin-ravg)/(dmax(rs,0,Ns)-ravg)>1/3.0&&fabs(rmax-ravg)/(dmax(rs,0,Ns)-ravg)>1/3.0)))
         rmin=ravg;
+    
     for (long i=0;i<Ns;i++){
 //         std::cout << std::fixed <<i<<'\t'<<Ns<<'\n';
         sides=rs[i]*(thmax-thmin)-ths[i]*(rmax-rmin)-rmin*thmax+rmax*thmin;
@@ -372,14 +374,20 @@ void sortCoods(double *xr,double *yr,double *ths,double *rs,long Ns){
             dk--;
         }
     }
+//     if (Ns ==20) {mexPrintf("%f\t %d\n",dmin(rs,0,Ns),k);}
     if(k!=0)
         savgN=savgN/(k*1.0);
     if (k!=Ns-2)
         savgP=savgP/((Ns-2-k)*1.0);
     if(k<=1||k>=Ns-3||savgP==0||savgN/savgP<0.08||savgN/savgP>1/0.08){
 //     if(k<=1||k>=Ns-3){
-        double x0=mean(xr,Ns);
-        double y0=mean(yr,Ns);
+//         double x0=mean(xr,Ns);
+//         double y0=mean(yr,Ns);
+//         double x0 = (dmax(xr,0,Ns)+dmin(xr,0,Ns))/2;
+//         double y0 = (dmax(yr,0,Ns)+dmin(yr,0,Ns))/2;
+        double x0 = 0;
+        double y0 = 0;
+        pol2cart1((thmax+thmin)/2,(dmax(rs,0,Ns)+dmin(rs,0,Ns))/2,x0,y0);
         for(long i=0;i<Ns;i++){
             Sths[i]=atan2(yr[i]-y0,xr[i]-x0);
         }
@@ -415,7 +423,8 @@ void getBoundariesFromLabel(double *xs,double *ys,double delta,double f,double l
     double T=lambda/sin(atan(delta/f/2)),cth,cr,cth2,cr2,tr[4];
     double *xr,*yr,*ths,*rs, th0, r0,x0,y0,thmin,thmax,l,div,*xm,*ym,*thm,*rm,flag;
     long sm=dmax(ps,0,ns);
-   // std::cout << std::fixed <<sm<<  '\n';
+    
+    // std::cout << std::fixed <<sm<<  '\n';
     xr= (double*) malloc(sm * sizeof(double));
     yr= (double*) malloc(sm * sizeof(double));
     ths= (double*) malloc(sm * sizeof(double));
@@ -429,6 +438,7 @@ void getBoundariesFromLabel(double *xs,double *ys,double delta,double f,double l
     nB=0;
     pB[0]=0;
     for (int i=0;i<ns;i++){
+
 //         break;
         tr[0]=0;
         tr[1]=0;
@@ -444,29 +454,25 @@ void getBoundariesFromLabel(double *xs,double *ys,double delta,double f,double l
             std::cout << std::fixed <<"allocated p array is too small"<<  '\n';
             break;
         }
-
 //         if (i==6)
 //             break;
         for(int j=0;j<Ns;j++){
-                xr[j]=xs[Index+j];
-                yr[j]=ys[Index+j];
+            xr[j]=xs[Index+j];
+            yr[j]=ys[Index+j];
         }
         Index=Index+Ns;
-//         if(i==0){
-//           std::cout << std::fixed <<i<<  '\n';
-//         break;}
+        
         cart2pol(xr,yr,ths,rs,Ns,angM);
-//         std::cout << std::fixed <<i<<  '\n';
+        //  std::cout << std::fixed <<i<<  '\n';
+        
         th0=mean(ths,Ns);
         r0=mean(rs,Ns);
         x0=(dmax(xr,0,Ns)+dmin(xr,0,Ns))/2;
         y0=(dmax(yr,0,Ns)+dmin(yr,0,Ns))/2;
 //         y0=mean(yr,Ns);
 //         pol2cart1(th0,r0,x0,y0);
-         
 //          std::cout << std::fixed <<xr[0]<< '\t' << yr[0]<<  '\n';
         getAccurateCoords(xr,yr,ths,rs,x0,y0,delta,f,lambda,th,incidentAngle,CoordsAccuCtrl,Ns);
-        
 //         if (i==2)
 //              for(int j=0;j<Ns;j++){
 //              std::cout << std::fixed <<Ns<< '\n';
@@ -502,7 +508,6 @@ void getBoundariesFromLabel(double *xs,double *ys,double delta,double f,double l
         for(int p=0;p<countm;p++)
             ym[countm+1]+=pow(ym[p]-ym[countm],2);
         ym[0]=ym[countm+1]/(countm*1.0);
-        
         if(xm[0]<ym[0]){
             direc=0;//change angle direction
             cth=tr[2];
@@ -519,15 +524,18 @@ void getBoundariesFromLabel(double *xs,double *ys,double delta,double f,double l
             div=T/5;
         else
             div=T/10;
-        if (div>(dmax(rs,0,Ns)-dmin(rs,0,Ns))*4)
-            div=(dmax(rs,0,Ns)-dmin(rs,0,Ns))*4;
+        if (div>(dmax(rs,0,Ns)-dmin(rs,0,Ns))*5)
+            div=(dmax(rs,0,Ns)-dmin(rs,0,Ns))*5;
         
         if (div>3*r0*PI/180)
             div=3*r0*PI/180;
 //         std::cout << std::fixed <<l<<'\t'<<div<< '\n';
+        
         if (l>div){
             SubN=ceil(l/div);
+//             mexPrintf("index %d\n",SubN);
             for(int j=0;j<SubN;j++){
+//                 mexPrintf("index %d\t %d\n",j,SubN);
                 countm=0;
                 if(direc==1){
                     flag=thmin+(thmax-thmin)*(j+1)/((double)SubN);
@@ -543,6 +551,7 @@ void getBoundariesFromLabel(double *xs,double *ys,double delta,double f,double l
                             countm++;
                         }
                     }
+                    
                     if(countm<5&&j!=(SubN-1)||countm<3)
                         continue;
                     for(int p=0;p<Ns;p++){
@@ -564,6 +573,7 @@ void getBoundariesFromLabel(double *xs,double *ys,double delta,double f,double l
                             countm++;
                         }
                     }
+                    
                     if(countm<5&&j!=(SubN-1)||countm<3)
                         continue;
                     for(int p=0;p<Ns;p++){
@@ -583,6 +593,7 @@ void getBoundariesFromLabel(double *xs,double *ys,double delta,double f,double l
 //                 if (i==2)
 //             for(int q=0;q<countm;q++){
 //             std::cout << std::fixed <<xm[q]<<'\t'<<ym[q]<<'\t' <<countm<<'\t'<<Ns<< '\n';}
+                
                 sortCoods(xm,ym,thm,rm,countm);
                 cart2pol(xm,ym,thm,rm,countm,angM);
                 if (direc==1)
@@ -632,6 +643,7 @@ void getBoundariesFromLabel(double *xs,double *ys,double delta,double f,double l
                         ths[Ns+1]=thm[Im[0]-1];
                     }
                 }
+//                 if (j==9){mexPrintf("%f\t %f\t %f\t %f\t %d\n",xr[Ns],yr[Ns],xr[Ns+1],yr[Ns+1],Im[0]);}
                 Ns=Ns+2;
                 if(j==0&&(cth!=0||cr!=0)){
                     Im=dfind(thm,countm,cth,Nm);
@@ -674,16 +686,17 @@ void getBoundariesFromLabel(double *xs,double *ys,double delta,double f,double l
                                 cr2 =ym[Im[0]-1];
                             }
                         }
-                    }     
+                    }
                 }
                 
-                
+//                 if (j==116){mexPrintf("%d\t %d\t %d\n",nB,pB[nB],countm);break;}
                 for(int k=0;k<countm;k++){
                     B[pB[nB]+k]=xm[k];
                     B[pB[nB]+k+countm]=ym[k];
                 }
                 pB[nB+1]=pB[nB]+2*countm;
                 nB++;
+                
                 if(j==(SubN-1)&&(cth!=0||cr!=0)){
                     xr[Ns]=cth;
                     xr[Ns+1]=cth2;
@@ -701,6 +714,7 @@ void getBoundariesFromLabel(double *xs,double *ys,double delta,double f,double l
                     pB[nB+1]=pB[nB]+2*Ns;
                     nB++;
                 }
+                
             }
         }
         else{
@@ -730,7 +744,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 {
 //     double *L         = mxGetPr(prhs[0]);
     
-
+    
 //     int M             = mxGetM(prhs[0]);
     long N            = mxGetM(prhs[0]);
     double *xs        = mxGetPr(prhs[0]);
@@ -751,7 +765,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 //              std::cout << std::fixed << N<<'\t'<<ns<<  '\n';
 //     long NZero,*IndexZero;
 //     IndexZero=dfind(L,M*N,0,NZero);
-    B=(double*) malloc(3*N * sizeof(double));
+    B=(double*) malloc(4*N * sizeof(double));
     getBoundariesFromLabel(xs,ys,delta,f,lambda,th,incidentAngle,CoordsAccuCtrl,ps,ns,B,pB,nB);
     plhs[0]=mxCreateCellMatrix(nB, 1);
     for(int i=0; i< nB ; i++){

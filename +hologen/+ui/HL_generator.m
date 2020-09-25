@@ -18,12 +18,17 @@ classdef HL_generator < mic.Base
         
         % valuables
         stShapes
+        dTh
+        dI
+        dHL
+        x_um
+        y_um
         
         % axis tab
         uitgAxesDisplay     % displays axes:simulation
         haFieldAmp
         
-
+        
         % parameters
         hpPara
         uieLambda
@@ -65,10 +70,10 @@ classdef HL_generator < mic.Base
             % axis tab
             this.uitgAxesDisplay = ...
                 mic.ui.common.Tabgroup('ceTabNames', {'Simulation'});
-           
+            
             % parameters
             this.uieLambda       = mic.ui.common.Edit('cLabel', 'Wavelength(nm)', 'cType', 'd');
-            this.uieT     = mic.ui.common.Edit('cLabel', 'T(nm)', 'cType', 'd');
+            this.uieT     = mic.ui.common.Edit('cLabel', 'T(um)', 'cType', 'd');
             this.uieFocalLength = mic.ui.common.Edit('cLabel', 'Focal length(mm)', 'cType', 'd');
             this.uieNA  = mic.ui.common.Edit('cLabel', 'NA', 'cType', 'd');
             this.uieOffsetAngle  = mic.ui.common.Edit('cLabel', 'Offset angle(deg)', 'cType', 'd');
@@ -78,9 +83,9 @@ classdef HL_generator < mic.Base
             this.uieOffset         = mic.ui.common.Edit('cLabel', 'Center offset(mm)', 'cType', 'c', 'fhDirectCallback', @(src, evt)this.cb(src));
             this.uieShift         = mic.ui.common.Edit('cLabel', 'Center shift(mm)', 'cType', 'c', 'fhDirectCallback', @(src, evt)this.cb(src));
             this.uipHologram    = mic.ui.common.Popup('cLabel', 'Hologram', 'ceOptions',...
-                {'QWLSI','LSI'}, 'lShowLabel', true);
+                {'QWLSI','LSI'}, 'lShowLabel', true,'fhDirectCallback', @(src, evt)this.cb(src));
             this.uieLambda.set(13.5);
-            this.uieT.set(0.54);
+            this.uieT.set(540);
             this.uieFocalLength.set(3);
             this.uieNA.set(0.0875);
             this.uieOffsetAngle.set(6);
@@ -90,6 +95,7 @@ classdef HL_generator < mic.Base
             this.uieOffset.set('[0, 0]');
             this.uieShift.set('[0, 0]');
             this.uipHologram.setSelectedIndex(uint8(1));
+            this.dTh = 32;
             
             % control
             this.uieFilePath    = mic.ui.common.Edit('cLabel', 'GDS file path', 'cType', 'c','fhDirectCallback', @(src, evt)this.cb(src));
@@ -102,7 +108,7 @@ classdef HL_generator < mic.Base
             cDataDir = fullfile(this.cAppPath,'..','..','Data','gds');
             this.uieFilePath.set(cDataDir);
             
-
+            
         end
         
         % Callback handler
@@ -117,17 +123,26 @@ classdef HL_generator < mic.Base
                     dirOutput=dir(fullfile(cDataDir,'*.gds'));
                     fileNames={dirOutput.name}';
                     this.uilFileList.setOptions(fileNames);
+                    
                 case this.uibSetPath
                     cDataDir = fullfile(this.cAppPath,'..','..','Data','gds');
                     dataPath = uigetdir(cDataDir);
                     this.uieFilePath.set(dataPath);
-                 
+                    
+                case this.uipHologram
+                    switch this.uipHologram.getSelectedIndex()
+                        case 1
+                            this.dTh = 32; % QWLSI
+                        case 2
+                            this.dTh = 8; % LSI
+                    end
                     
                 case this.uibGenGDS
                     this.genGDS();
                     this.cb(this.uieFilePath);
                 case this.uibGenPattern
                     this.genPattern();
+                    this.replot(this.U8SIM);
                     
                 case this.uibOpenGDS
                     cDataDir = this.uieFilePath.get();
@@ -138,13 +153,48 @@ classdef HL_generator < mic.Base
             end
         end
         
+        % simulate hologram
+        function genPattern(this)
+            T_um = this.uieT.get(); % grating pitch
+            f_um = this.uieFocalLength.get()*1e3; % lens focal length
+            lambda_um = this.uieLambda.get()*1e-3; % wavelength
+            NA = this.uieNA.get();
+            offset = eval(this.uieOffset.get())*1e3;
+            xOffset = offset(1);
+            yOffset = offset(2);
+            N = 2000;
+            subR_um=f_um*tan(asin(NA)); % lens radius
+            this.x_um = linspace(-subR_um,subR_um,N);
+            this.y_um = linspace(-subR_um,subR_um,N);
+            [xp,yp] = meshgrid(this.x_um,this.y_um);
+            pupil = zeros(N);
+            pupil(xp.^2+yp.^2<= subR_um.^2) = 1;
+            xp = xp + xOffset;
+            yp = yp + yOffset;
+            this.x_um = this.x_um + xOffset;
+            this.y_um = this.y_um + yOffset;
+            theta = this.uieOffsetAngle.get(); % offset angle;
+            delta_um = 2*f_um*tan(asin(lambda_um/T_um));
+            switch this.uipHologram.getSelectedIndex()
+                case 1
+                    % QWLSI
+                    this.dI=hologen.utils.getIntensity_QWLSI(xp,yp,delta_um,f_um,lambda_um,theta/180*pi);
+                case 2
+                    % LSI
+                    this.dI=hologen.utils.getIntensity_LSI(xp,yp,delta_um,f_um,lambda_um,theta/180*pi);
+            end
+            this.dHL = this.dI;
+            this.dHL(this.dHL<this.dTh)=0;
+            this.dHL(this.dHL>=this.dTh)=1;
+            this.dHL = this.dHL.*pupil;
+        end
         
         % gds generate function
         function genGDS(this)
             % parameter setting
-            f = this.uieFocalLength.get(); % lens focal length 
+            f = this.uieFocalLength.get(); % lens focal length
             incidentAngle= this.uieOffsetAngle.get(); % offset angle
-            T = this.uieT.get(); % grating pitch
+            T = this.uieT.get()/1e3; % grating pitch
             db = 10000000; %set unit to anstrom
             lambda = this.uieLambda.get()*1e-6; % wavelength
             delta=2*f*tan(asin(lambda/T));
@@ -167,32 +217,35 @@ classdef HL_generator < mic.Base
             filenamestr=['F',num2str(f),'_T',num2str(T),'_wl',num2str(lambda*1e6)];
             outputFile=hologen.utils.OpenGDS(filename,filenamestr);
             incidentAngle=incidentAngle/180*pi;
-
+            
             RingNum=(sqrt(f^2+R^2)-f)/lambda;
             divnum=2*floor(RingNum/ringSamplingNum)+1;
             dx=2*R/divnum;
             dy=2*R/divnum;
-
+            
             Mx=divnum;
             My=divnum;
             fliped=divnum/2+1;
             shift = eval(this.uieShift.get())*db;
             xShift = shift(1); % coordinates shift in gds
             yShift = shift(2);
+            hologram = this.uipHologram.getSelectedIndex();
             
-            th=32; % threshold for generating hololens
+            th = this.dTh; % threshold for generating hololens
             tic
-            
+            fprintf('Initialing coordinates...\n');
             ceout=cell(Mx,My);
             parfor_progress(Mx);
             parfor p=1:Mx
                 parfor_progress;
                 for q=1:My
-                    ceout{p,q}=hologen.utils.getCoords(lambda,delta,f,R,subR,xOffset,yOffset,db,Nx,Ny,p,q,Mx,My,dx,dy,fliped,incidentAngle,th);
+                    ceout{p,q} = hologen.utils.getCoords(lambda,delta,f,R,subR,xOffset,yOffset,db,Nx,Ny,p,q,Mx,My,dx,dy,fliped,incidentAngle,th,hologram);
                 end
             end
             parfor_progress(0);
-            toc
+            fprintf('Initialing coordinates took %0.1f\n',toc);
+            fprintf('Processing coordinates... \n');
+            tic,
             Ixy=[];
             uxy=[];
             this.stShapes=[];
@@ -260,7 +313,9 @@ classdef HL_generator < mic.Base
                     this.stShapes(t)=[];
                 end
             end
-
+            fprintf('Processing coordinates took %0.1f\n',toc);
+            fprintf('Generating ploygons... \n');
+            tic,
             len=length(this.stShapes);
             parfor_progress(len);
             for q=1:len
@@ -275,11 +330,11 @@ classdef HL_generator < mic.Base
                 %         continue;
                 %     end
                 B=hologen.utils.CgetBoundariesFromLabelQWLSI(cx,cy,cn,delta,f,lambda,th,incidentAngle,CoordsAccuCtrl);
-
+                
                 Bs=hologen.utils.CdownSamplingUsingRealCoords(B,lambda,delta,f,DownSamplingAccuCtrl);
-
+                
                 for si=length(Bs):-1:1
- 
+                    
                     while 1 % remove glitch
                         num=length(Bs{si});
                         angle=zeros(num,1);
@@ -307,7 +362,8 @@ classdef HL_generator < mic.Base
                         end
                     end
                 end
-                        
+                
+                
                 
                 %% generate boundary
                 for ns=1:length(Bs)
@@ -321,18 +377,16 @@ classdef HL_generator < mic.Base
                     xy(end+1,:)=xy(1,:);
                     xy(:,1)=xy(:,1)+xShift;
                     xy(:,2)=xy(:,2)+yShift;
-                    Np=size(xy,1)-1;%多边形顶点数
+                    Np=size(xy,1)-1;
                     hologen.utils.CreateBoundary(outputFile,xy',Np);
                 end
             end
             parfor_progress(0);
-            
+            fprintf('Generating ploygons took %0.1f\n',toc);
             %% finish GDS
             hologen.utils.CloseGDS(outputFile);
+            fprintf('GDS file is generated!\n');
         end
-        
-        
-        
         
         
         
@@ -369,20 +423,10 @@ classdef HL_generator < mic.Base
             switch dTabIdx
                 
                 case this.U8SIM
-                    diff_amp = this.dFarfield;
-                    norm_flag = 1 ; % 1: Normalize the intensity, 0: Unnormalize the intensity
-                    if norm_flag>0
-                        diff_amp = diff_amp./max(abs(diff_amp(:))) ;
-                    else
-                        diff_amp = diff_amp./length(diff_amp).^2 ;
-                    end
-                    fieldAmp=abs(diff_amp);
-                    fieldPha=atan2(imag(diff_amp),real(diff_amp));
-                    
-                    imagesc(this.haFieldAmp,this.x_um,this.y_um,fieldAmp);axis(this.haFieldAmp,'xy'); colorbar(this.haFieldAmp);
-                    xlabel(this.haFieldAmp,'x/um'),ylabel(this.haFieldAmp,'y/um');
-                   
-               
+                    imagesc(this.haFieldAmp,this.x_um,this.y_um,this.dHL);
+                    axis(this.haFieldAmp,'xy','equal');
+                    xlabel(this.haFieldAmp,'x/um'),
+                    ylabel(this.haFieldAmp,'y/um');
             end
             
         end
@@ -396,7 +440,7 @@ classdef HL_generator < mic.Base
                 dOffsetY = 0;
             elseif nargin == 3
                 dOffsetY = dOffsetX;
-                dOffsetX =  hFigure;            
+                dOffsetX =  hFigure;
             end
             
             % build the main window
@@ -424,15 +468,15 @@ classdef HL_generator < mic.Base
             
             % Axes:Far field
             uitField = this.uitgAxesDisplay.getTabByName('Simulation');
-
+            
             
             this.haFieldAmp = axes('Parent', uitField, ...
                 'Units', 'pixels', ...
-                'Position', [50, 60, 430, 360], ...
+                'Position', [80, 75, 400, 400], ...
                 'XTick', [], 'YTick', []);
-
-          
-
+            
+            
+            
             
             % parameters
             this.hpPara = uipanel(...

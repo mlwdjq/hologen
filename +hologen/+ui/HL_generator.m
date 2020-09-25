@@ -17,23 +17,7 @@ classdef HL_generator < mic.Base
         hFigure     % Main figure (not overwritable)
         
         % valuables
-        dGDSData
-        dGDSDataHead
-        dGDSDataEnd
-        dPolygon
-        dMask
-        dFarfield
-        dPupil
-        dPupilAmp
-        dPhase
-        dRMS
-        dZrn
-        dUx
-        dUy
-        x_um
-        y_um
-        yp_um
-        xp_um
+        stShapes
         
         % axis tab
         uitgAxesDisplay     % displays axes:simulation
@@ -96,7 +80,7 @@ classdef HL_generator < mic.Base
             this.uipHologram    = mic.ui.common.Popup('cLabel', 'Hologram', 'ceOptions',...
                 {'QWLSI','LSI'}, 'lShowLabel', true);
             this.uieLambda.set(13.5);
-            this.uieT.set(54);
+            this.uieT.set(0.54);
             this.uieFocalLength.set(3);
             this.uieNA.set(0.0875);
             this.uieOffsetAngle.set(6);
@@ -115,7 +99,8 @@ classdef HL_generator < mic.Base
             this.uibGenGDS   = mic.ui.common.Button('cText', 'Gen GDS', 'fhDirectCallback', @(src, evt)this.cb(src));
             this.uibGenPattern   = mic.ui.common.Button('cText', 'Gen pattern', 'fhDirectCallback', @(src, evt)this.cb(src));
             this.uibOpenGDS   = mic.ui.common.Button('cText', 'Open GDS', 'fhDirectCallback', @(src, evt)this.cb(src));
-            this.uieFilePath.set('');
+            cDataDir = fullfile(this.cAppPath,'..','..','Data','gds');
+            this.uieFilePath.set(cDataDir);
             
 
         end
@@ -124,180 +109,226 @@ classdef HL_generator < mic.Base
         function cb(this, src,evt)
             switch src
                 case {this.uieOffset, this.uieShift}
-                    this.validateCouplesEditBox(src, '[-1, 1]');
+                    this.validateCouplesEditBox(src, '[0, 0]');
                     
                 case this.uieFilePath
-                    filename = this.uieFilePath.get();
-                    if ~isempty(filename)
-                        if ~strcmp(filename,'Please load GDS file first!')
-                            this.dataLoading(filename);
-                        end
-                    else
-                        this.uieFilePath.set('Please load GDS file first!');
-                    end
-                    
+                    cDataDir = this.uieFilePath.get();
+                    % get data file list
+                    dirOutput=dir(fullfile(cDataDir,'*.gds'));
+                    fileNames={dirOutput.name}';
+                    this.uilFileList.setOptions(fileNames);
                 case this.uibSetPath
-                    cDataDir = fullfile(this.cAppPath, '..','..','data', '*.gds');
-                    [d, p] = uigetfile(cDataDir);
-                    if isequal(d,0)||isequal(p,0)
-                        return;
-                    end
-                    filename = [p d];
-                    this.uieFilePath.set(filename);
-                    this.dataLoading(filename);
+                    cDataDir = fullfile(this.cAppPath,'..','..','Data','gds');
+                    dataPath = uigetdir(cDataDir);
+                    this.uieFilePath.set(dataPath);
+                 
                     
                 case this.uibGenGDS
                     this.genGDS();
-                    
+                    this.cb(this.uieFilePath);
                 case this.uibGenPattern
                     this.genPattern();
                     
                 case this.uibOpenGDS
-                    this.openGDS();
-                    
+                    cDataDir = this.uieFilePath.get();
+                    datalist = this.uilFileList.getOptions();
+                    value = this.uilFileList.getSelectedIndexes();
+                    filename= fullfile(cDataDir,datalist{value});
+                    winopen(filename);
+            end
+        end
+        
+        
+        % gds generate function
+        function genGDS(this)
+            % parameter setting
+            f = this.uieFocalLength.get(); % lens focal length 
+            incidentAngle= this.uieOffsetAngle.get(); % offset angle
+            T = this.uieT.get(); % grating pitch
+            db = 10000000; %set unit to anstrom
+            lambda = this.uieLambda.get()*1e-6; % wavelength
+            delta=2*f*tan(asin(lambda/T));
+            NA = this.uieNA.get();
+            offset = eval(this.uieOffset.get());
+            xOffset = offset(1);
+            yOffset = offset(2);
+            subR=f*tan(asin(NA)); % lens radius
+            R=subR+sqrt(xOffset.^2+yOffset.^2); % parent lens radius
+            Nx=500;
+            Ny=500;
+            obscuration = this.uieObscuration.get(); % central obscuration
+            printResolution = this.uieMinFeature.get()*1e-6; % minimum printable feature
+            ringSampling=50;
+            ringSamplingNum=Nx/ringSampling;
+            
+            DownSamplingAccuCtrl=0.001; % ratio
+            CoordsAccuCtrl=0.0001; % intensity
+            filename=fullfile(this.uieFilePath.get(),[this.uieFileName.get(),'.gds']);
+            filenamestr=['F',num2str(f),'_T',num2str(T),'_wl',num2str(lambda*1e6)];
+            outputFile=hologen.utils.OpenGDS(filename,filenamestr);
+            incidentAngle=incidentAngle/180*pi;
 
-            end
-        end
-        
-        function dataLoading(this, filename)
-            % load data
-            tic,
-            outputFile=fopen(filename,'rb');
-            if outputFile==-1
-                fprintf('Opening file failed!\n');
-                return;
-            end
-            offset=0;
-            while 1
-                fseek(outputFile, offset, 'bof');
-                temp=fread(outputFile, [4,1],'uint8');
-                if temp(3)==8&&temp(4)==0
-                    break;
-                else
-                    offset=temp(1)*16+temp(2)+offset;
+            RingNum=(sqrt(f^2+R^2)-f)/lambda;
+            divnum=2*floor(RingNum/ringSamplingNum)+1;
+            dx=2*R/divnum;
+            dy=2*R/divnum;
+
+            Mx=divnum;
+            My=divnum;
+            fliped=divnum/2+1;
+            shift = eval(this.uieShift.get())*db;
+            xShift = shift(1); % coordinates shift in gds
+            yShift = shift(2);
+            
+            th=32; % threshold for generating hololens
+            tic
+            
+            ceout=cell(Mx,My);
+            parfor_progress(Mx);
+            parfor p=1:Mx
+                parfor_progress;
+                for q=1:My
+                    ceout{p,q}=hologen.utils.getCoords(lambda,delta,f,R,subR,xOffset,yOffset,db,Nx,Ny,p,q,Mx,My,dx,dy,fliped,incidentAngle,th);
                 end
             end
-            fseek(outputFile, offset, 'bof');
-            gds=fread(outputFile, 'int32','b');
-            gds(end-1:end)=[];
-            s1=find(gds==264192);% head of the polygon
-            s2=find(gds==266496);% end of the polygon
-            % remove error datas
-            ds1 = diff(s1);
-            ds2 = diff(s2);
-            for i = 1:length(ds1)
-                try
-                    while ds1(i)>ds2(i)
-                        ds2(i) = ds2(i)+ds2(i+1);
-                        ds2(i+1) =[];
-                        s2(i+1)  =[];
+            parfor_progress(0);
+            toc
+            Ixy=[];
+            uxy=[];
+            this.stShapes=[];
+            sns=0;
+            for p=1:Mx
+                for q=1:My
+                    if ~isempty(ceout{p,q})
+                        this.stShapes=[this.stShapes,ceout{p,q}.Ixy0];
+                        Ixy=[Ixy,ceout{p,q}.Ixy];
+                        if ~isempty(ceout{p,q}.uxy)
+                            ceout{p,q}.uxy(:,4)=ceout{p,q}.uxy(:,4)+sns;
+                        end
+                        uxy=[uxy;ceout{p,q}.uxy];
+                        sns=length(Ixy);
                     end
-                    while ds1(i)<ds2(i)
-                        ds1(i) = ds1(i)+ds1(i+1);
-                        ds1(i+1) =[];
-                        s1(i+1)  =[];
+                end
+            end
+            % stitching splitted shapes and seperate each shape
+            while ~isempty(uxy)
+                t=uxy(1,4);
+                temp=find(uxy(:,1)==uxy(1,1)&uxy(:,2)==uxy(1,2)&uxy(:,3)==uxy(1,3)&uxy(:,4)~=t);
+                if isempty(temp)
+                    temp=find(uxy(:,1)==uxy(1,1)&uxy(:,2)==uxy(1,2)&uxy(:,3)==uxy(1,3)&uxy(:,4)==t);
+                    if isempty(temp)
+                        break;
                     end
-                catch
-                    break;
+                    %         if length(temp)==1
+                    %            uxy(:,:)=uxy([end,1:end-1],:);
+                    %            continue;
+                    %         end
+                    uxy(temp,:)=[];
+                    temp3=find(uxy(:,4)==t);
+                    if isempty(temp3)
+                        this.stShapes(end+1)=Ixy(t);
+                    end
+                    continue;
+                end
+                k=uxy(temp,4);
+                Ixy(t).xr=[Ixy(t).xr;Ixy(k).xr];
+                Ixy(t).yr=[Ixy(t).yr;Ixy(k).yr];
+                uxy(temp,:)=[];
+                uxy(1,:)=[];
+                temp2=find(uxy(:,4)==k);
+                if ~isempty(temp2)
+                    uxy(temp2,4)=t;
+                end
+                temp3=find(uxy(:,4)==t);
+                if isempty(temp3)
+                    this.stShapes(end+1)=Ixy(t);
                 end
             end
-            num=length(s1);
-            fclose(outputFile);
-            if num~=length(s2)
-                fprintf('Data format is not correct!\n');
-                return;
-            end
-            this.dGDSData = gds;
-            this.dGDSDataHead = s1;
-            this.dGDSDataEnd = s2;
-            fprintf('Reading GDS file took %ds\n',round(toc));
-        end
-        
-        % propagate function
-        function propagate(this)
-            % --  Exposure tool information
-            s2 = this.dGDSDataEnd;
-            s1 = this.dGDSDataHead;
-            gds = this.dGDSData;
-            if isempty(gds)
-                fprintf('Please reload datafile!\n');
-                return;
-            end
-            tic,
-            num=length(s1);
-            wavl = this.uieLambda.get();
-            nrd = this.uieT.get();
-            offsetAngle = this.uieOffsetAngle.get()*pi/180;
-            azimuth = this.uieObscuration.get()*pi/180;
-            propdis_nm=this.uieFocalLength.get()*1e6;
-            defocus_mm = this.uieNA.get();
-            propMethod = this.uipHologram.getSelectedIndex();
-            if propMethod ==1
-                sph = @(x,y)(2*pi/wavl*sign(defocus_mm)*sqrt(x.^2+y.^2+...
-                    (defocus_mm*1e6+x*tan(offsetAngle)*cos(azimuth)+y*tan(offsetAngle)*sin(azimuth)).^2)+...% point source illumination
-                    2*pi/wavl*sqrt(x.^2+y.^2+...
-                    (propdis_nm-x*tan(offsetAngle)*cos(azimuth)-y*tan(offsetAngle)*sin(azimuth)).^2)); % compensate phase;
-            else
-                sph = @(x,y)(2*pi/wavl*sign(defocus_mm)*sqrt(x.^2+y.^2+...
-                    (defocus_mm*1e6+x*tan(offsetAngle)*cos(azimuth)+y*tan(offsetAngle)*sin(azimuth)).^2));% point source illumination
-            end
-            rangeX = eval(this.uieOffset.get());
-            rangeY = eval(this.uieShift.get());
-            xLeft= rangeX(1);
-            xRight= rangeX(2);
-            yLeft= rangeY(1);
-            yRight= rangeY(2);
             
-            xc=linspace(sin(atan(xLeft/propdis_nm*1000)),sin(atan(xRight/propdis_nm*1000)),2*nrd-1)/wavl;
-            yc=linspace(sin(atan(yLeft/propdis_nm*1000)),sin(atan(yRight/propdis_nm*1000)),2*nrd-1)/wavl;
-            x_um=propdis_nm*tan(asin(xc*wavl))/1000;
-            y_um=propdis_nm*tan(asin(yc*wavl))/1000;
-            [x_nm,y_nm] = meshgrid(x_um*1000,y_um*1000);
-            % [x_nm,y_nm] = meshgrid(linspace(xLeft,xRight,2*nrd-1)*1000,linspace(yLeft,yRight,2*nrd-1)*1000);
-            [nyux,nyuy]=meshgrid(xc,yc); % frequency coordinates
-            this.dUx = nyux;
-            this.dUy = nyuy;
-            this.x_um = x_um;
-            this.y_um = y_um;
-            dpx_um = wavl*propdis_nm/(xRight-xLeft)*1e-6;
-            dpy_um = wavl*propdis_nm/(yRight-yLeft)*1e-6;
-            this.xp_um = dpx_um*[-nrd+1:nrd-1];
-            this.yp_um = dpy_um*[-nrd+1:nrd-1];
-            %% create polygon structs
-            polyg(num,1)=struct('xy',[],'tx',[],'phase',[]);
-            backg.int=0;
-            backg.phase=0;
-            for j=1:num
-                if abs(cos(azimuth))==1
-                    xs=gds((s1(j)+5):2:(s2(j)-3))/10*cos(offsetAngle); % from A to nm (tilt only works for x axis)
-                    ys=gds((s1(j)+6):2:(s2(j)-3))/10;
-                else
-                    xs=gds((s1(j)+5):2:(s2(j)-3))/10; % from A to nm (tilt only works for x axis)
-                    ys=gds((s1(j)+6):2:(s2(j)-3))/10*cos(offsetAngle);
+            lambda=lambda*db;
+            printResolution = printResolution*db;
+            delta=delta*db;
+            f=f*db;
+            % R=R*db;
+            xOffset = xOffset*db;
+            yOffset = yOffset*db;
+            subR=subR*db;
+            Rb=obscuration*db;
+            for t=length(this.stShapes):-1:1
+                if ~all((this.stShapes(t).xr-xOffset).^2+(this.stShapes(t).yr-yOffset).^2>Rb.^2&...
+                        (this.stShapes(t).xr-xOffset).^2+(this.stShapes(t).yr-yOffset).^2<=(subR).^2)
+                    this.stShapes(t)=[];
                 end
-                polyg(j).xy =[xs';ys'];
-                polyg(j).tx = 1;
-                x0=mean(xs);
-                y0=mean(ys);
-                polyg(j).phase = sph(x0,y0);
-                %     figure(2),plot3(x0,y0,sph(x0,y0),'.'),hold on;
             end
-            
-            % Forces all polygons to be defined in a CW orientation
-            polyg = GDS.utils.cc_or_ccw(polyg) ;
-            
-            % -- Pupil intensity calculation
-            % Computes the fourier transform of polygons in the plane specified by
-            if propMethod ==1
-                this.dFarfield = GDS.utils.polyProp(polyg, backg, nrd,nyux,nyuy) ;
-            else
-                this.dFarfield = GDS.utils.sphereProp(polyg,x_nm,y_nm,propdis_nm,wavl,offsetAngle,azimuth);
+
+            len=length(this.stShapes);
+            parfor_progress(len);
+            for q=1:len
+                parfor_progress;
+                cxy=[this.stShapes(q).xr,this.stShapes(q).yr];
+                cxy=unique(cxy,'rows');
+                cn=length(cxy);
+                k=k+1;
+                cx=cxy(:,1);
+                cy=cxy(:,2);
+                %     if q~=70
+                %         continue;
+                %     end
+                B=hologen.utils.CgetBoundariesFromLabelQWLSI(cx,cy,cn,delta,f,lambda,th,incidentAngle,CoordsAccuCtrl);
+
+                Bs=hologen.utils.CdownSamplingUsingRealCoords(B,lambda,delta,f,DownSamplingAccuCtrl);
+
+                for si=length(Bs):-1:1
+ 
+                    while 1 % remove glitch
+                        num=length(Bs{si});
+                        angle=zeros(num,1);
+                        for js=1:num
+                            if js==1
+                                angle(1)=hologen.utils.calAngle(Bs{si}(end,1),Bs{si}(end,2),Bs{si}(1,1),Bs{si}(1,2),Bs{si}(2,1),Bs{si}(2,2));
+                            elseif js==num
+                                angle(num)=hologen.utils.calAngle(Bs{si}(num-1,1),Bs{si}(num-1,2),Bs{si}(num,1),Bs{si}(num,2),Bs{si}(1,1),Bs{si}(1,2));
+                            else
+                                angle(js)=hologen.utils.calAngle(Bs{si}(js-1,1),Bs{si}(js-1,2),Bs{si}(js,1),Bs{si}(js,2),Bs{si}(js+1,1),Bs{si}(js+1,2));
+                            end
+                        end
+                        da=diff([angle;angle(1)]);
+                        index=abs(da)>5; % remove glitch, if this value is too small, it may remove correct shapes
+                        if sum(abs(angle)>3.1)>1
+                            index=index|abs(angle)>3.1;
+                        end
+                        Bs{si}(index,:)=[];
+                        [~,rss]=cart2pol(Bs{si}(:,1),Bs{si}(:,2));
+                        if max(rss)-min(rss)<printResolution
+                            Bs{si}=[];
+                        end
+                        if sum(index)==0||length(Bs{si})<3
+                            break;
+                        end
+                    end
+                end
+                        
+                
+                %% generate boundary
+                for ns=1:length(Bs)
+                    xy=Bs{ns};
+                    if isempty(xy)||size(xy,1)<3
+                        continue;
+                    end
+                    if ((xy(1,1)-xOffset)^2+(xy(1,2)-yOffset)^2)>subR^2||((xy(1,1)-xOffset)^2+(xy(1,2)-yOffset)^2)<Rb^2
+                        continue;
+                    end
+                    xy(end+1,:)=xy(1,:);
+                    xy(:,1)=xy(:,1)+xShift;
+                    xy(:,2)=xy(:,2)+yShift;
+                    Np=size(xy,1)-1;%多边形顶点数
+                    hologen.utils.CreateBoundary(outputFile,xy',Np);
+                end
             end
-            this.dPolygon = polyg;
-            fprintf('Propagation took %ds\n',round(toc));
-            % Make Field tab active:
-            this.uitgAxesDisplay.selectTabByIndex(this.U8SIM);
-            this.replot(this.U8SIM);
+            parfor_progress(0);
+            
+            %% finish GDS
+            hologen.utils.CloseGDS(outputFile);
         end
         
         

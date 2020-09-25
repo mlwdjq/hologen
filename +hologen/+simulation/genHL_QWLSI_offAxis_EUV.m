@@ -21,7 +21,7 @@ db=10000000; %set unit to anstrom
 lambda=13.5e-6; % wavelength
 delta=2*f*tan(asin(lambda/T));
 NA=0.0875;
-Axis = 'on';
+Axis = 'off';
 switch Axis
     case 'on'
         xOffset = 0; % offset of the lens center

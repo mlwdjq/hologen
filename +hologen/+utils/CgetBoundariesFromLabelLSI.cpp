@@ -198,14 +198,10 @@ double getIntensity(double xs,double ys,double delta,double f,double lambda,doub
     //delta1=offset-f*(tan(asin(sin(incidentAngle)-lambda/T)));
     I=pow(cos(2*PI/lambda*sqrt(pow(xs-delta/2,2)+pow(ys-offset,2)+pow(f,2)))\
             +cos(2*PI/lambda*sqrt(pow(xs+delta/2,2)+pow(ys-offset,2)+pow(f,2)))\
-            +cos(2*PI/lambda*sqrt(pow(xs,2)+pow(ys-offset-delta/2,2)+pow(f,2)))\
-            +cos(2*PI/lambda*sqrt(pow(xs,2)+pow(ys-offset+delta/2,2)+pow(f,2)))\
-            +4*cos(2*PI/lambda*ys*sin(incidentAngle)),2)\
+            +2*cos(2*PI/lambda*ys*sin(incidentAngle)),2)\
             +pow(-sin(2*PI/lambda*sqrt(pow(xs-delta/2,2)+pow(ys-offset,2)+pow(f,2)))\
             -sin(2*PI/lambda*sqrt(pow(xs+delta/2,2)+pow(ys-offset,2)+pow(f,2)))\
-            -sin(2*PI/lambda*sqrt(pow(xs,2)+pow(ys-offset-delta/2,2)+pow(f,2)))\
-            -sin(2*PI/lambda*sqrt(pow(xs,2)+pow(ys-offset+delta/2,2)+pow(f,2)))\
-            +4*sin(2*PI/lambda*ys*sin(incidentAngle)),2);
+            +2*sin(2*PI/lambda*ys*sin(incidentAngle)),2);
 //     I=pow(cos(2*PI/lambda*sqrt(pow(ys-delta1,2)+pow(xs,2)+pow(f,2)))+cos(2*PI/lambda*sqrt(pow(ys+delta2,2)+pow(xs,2)+pow(f,2)))+2*cos(2*PI/lambda*xs*sin(incidentAngle)),2)\
 //             +pow(sin(2*PI/lambda*sqrt(pow(ys-delta1,2)+pow(xs,2)+pow(f,2)))+sin(2*PI/lambda*sqrt(pow(ys+delta2,2)+pow(xs,2)+pow(f,2)))+2*sin(2*PI/lambda*xs*sin(incidentAngle)),2);
     return I;

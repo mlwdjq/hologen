@@ -239,7 +239,9 @@ classdef HL_generator < mic.Base
             parfor p=1:Mx
                 parfor_progress;
                 for q=1:My
-                    ceout{p,q} = hologen.utils.getCoords(lambda,delta,f,R,subR,xOffset,yOffset,db,Nx,Ny,p,q,Mx,My,dx,dy,fliped,incidentAngle,th,hologram);
+                    ceout{p,q} = hologen.utils.getCoords(lambda,delta,f,R,...
+                        subR,xOffset,yOffset,db,Nx,Ny,p,q,Mx,My,dx,dy,fliped,...
+                        incidentAngle,th,hologram);
                 end
             end
             parfor_progress(0);
@@ -279,7 +281,11 @@ classdef HL_generator < mic.Base
                     uxy(temp,:)=[];
                     temp3=find(uxy(:,4)==t);
                     if isempty(temp3)
-                        this.stShapes(end+1)=Ixy(t);
+                        try
+                            this.stShapes(end+1)=Ixy(t);
+                        catch
+                            this.stShapes=Ixy(t);
+                        end
                     end
                     continue;
                 end
@@ -307,12 +313,12 @@ classdef HL_generator < mic.Base
             yOffset = yOffset*db;
             subR=subR*db;
             Rb=obscuration*db;
-            for t=length(this.stShapes):-1:1
-                if ~all((this.stShapes(t).xr-xOffset).^2+(this.stShapes(t).yr-yOffset).^2>Rb.^2&...
-                        (this.stShapes(t).xr-xOffset).^2+(this.stShapes(t).yr-yOffset).^2<=(subR).^2)
-                    this.stShapes(t)=[];
-                end
-            end
+%             for t=length(this.stShapes):-1:1
+%                 if ~all((this.stShapes(t).xr-xOffset).^2+(this.stShapes(t).yr-yOffset).^2>Rb.^2&...
+%                         (this.stShapes(t).xr-xOffset).^2+(this.stShapes(t).yr-yOffset).^2<=(subR).^2)
+%                     this.stShapes(t)=[];
+%                 end
+%             end
             fprintf('Processing coordinates took %0.1f\n',toc);
             fprintf('Generating ploygons... \n');
             tic,
@@ -329,8 +335,12 @@ classdef HL_generator < mic.Base
                 %     if q~=70
                 %         continue;
                 %     end
-                B=hologen.utils.CgetBoundariesFromLabelQWLSI(cx,cy,cn,delta,f,lambda,th,incidentAngle,CoordsAccuCtrl);
-                
+                switch hologram
+                    case 1
+                        B=hologen.utils.CgetBoundariesFromLabelQWLSI(cx,cy,cn,delta,f,lambda,th,incidentAngle,CoordsAccuCtrl);
+                    case 2
+                        B=hologen.utils.CgetBoundariesFromLabelLSI(cx,cy,cn,delta,f,lambda,th,incidentAngle,CoordsAccuCtrl);
+                end
                 Bs=hologen.utils.CdownSamplingUsingRealCoords(B,lambda,delta,f,DownSamplingAccuCtrl);
                 
                 for si=length(Bs):-1:1

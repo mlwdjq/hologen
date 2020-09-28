@@ -101,7 +101,7 @@ classdef HL_generator < mic.Base
             this.uieFilePath    = mic.ui.common.Edit('cLabel', 'GDS file path', 'cType', 'c','fhDirectCallback', @(src, evt)this.cb(src));
             this.uibSetPath    = mic.ui.common.Button('cText', 'Set path', 'fhDirectCallback', @(src, evt)this.cb(src));
             this.uilFileList         = mic.ui.common.List('cLabel', 'GDS file list', ...
-                'lShowDelete', false, 'lShowMove', false, 'lShowRefresh', false);
+                'lShowDelete', false, 'lShowMove', false, 'lShowRefresh', false,'fhOnChange', @(src, evt)this.cb(src));
             this.uibGenGDS   = mic.ui.common.Button('cText', 'Gen GDS', 'fhDirectCallback', @(src, evt)this.cb(src));
             this.uibGenPattern   = mic.ui.common.Button('cText', 'Gen pattern', 'fhDirectCallback', @(src, evt)this.cb(src));
             this.uibOpenGDS   = mic.ui.common.Button('cText', 'Open GDS', 'fhDirectCallback', @(src, evt)this.cb(src));
@@ -128,6 +128,11 @@ classdef HL_generator < mic.Base
                     cDataDir = fullfile(this.cAppPath,'..','..','Data','gds');
                     dataPath = uigetdir(cDataDir);
                     this.uieFilePath.set(dataPath);
+                    
+                case this.uilFileList
+                    datalist = this.uilFileList.getOptions();
+                    value = this.uilFileList.getSelectedIndexes();
+                    this.uieFileName.set(datalist{value}(1:end-4));
                     
                 case this.uipHologram
                     switch this.uipHologram.getSelectedIndex()

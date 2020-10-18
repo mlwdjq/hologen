@@ -346,11 +346,12 @@ classdef HL_generator < mic.Base
                     case 2
                         B=hologen.utils.CgetBoundariesFromLabelLSI(cx,cy,cn,delta,f,lambda,th,incidentAngle,CoordsAccuCtrl);
                 end
-                Bs=hologen.utils.CdownSamplingUsingRealCoords(B,lambda,delta,f,DownSamplingAccuCtrl);
+                Bs = B;
+%                 Bs=hologen.utils.CdownSamplingUsingRealCoords(B,lambda,delta,f,DownSamplingAccuCtrl);
                 
                 for si=length(Bs):-1:1
                     
-                    while 1 % remove glitch
+                    while 0 % remove glitch
                         num=length(Bs{si});
                         angle=zeros(num,1);
                         for js=1:num

@@ -241,7 +241,8 @@ void getAccurateCoords(double *xr,double *yr,double *ths,double *rs,double x0,do
         Ia=getIntensity(xr[i],yr[i],delta,f,lambda,incidentAngle)-th;
         if (fabs(Ia)<0.1){
             a=ri[i];
-            b=a*(Ia/2+th)/th;
+            //b=a*(Ia/2+th)/th;
+            b = a + (rimax-rimin)*(Ia/2)/th;
             pol2cart1(thi[i],b,xs,ys);
             Ib=getIntensity(xs+x0,ys+y0,delta,f,lambda,incidentAngle)-th;
             if (fabs(Ia)>fabs(Ib))
@@ -379,7 +380,7 @@ void sortCoods(double *xr,double *yr,double *ths,double *rs,long Ns){
         savgN=savgN/(k*1.0);
     if (k!=Ns-2)
         savgP=savgP/((Ns-2-k)*1.0);
-    if(k<=1||k>=Ns-3||savgP==0||savgN/savgP<0.08||savgN/savgP>1/0.08){
+    if(k>1||k<=1||k>=Ns-3||savgP==0||savgN/savgP<0.08||savgN/savgP>1/0.08){
 //     if(k<=1||k>=Ns-3){
 //         double x0=mean(xr,Ns);
 //         double y0=mean(yr,Ns);
@@ -469,6 +470,8 @@ void getBoundariesFromLabel(double *xs,double *ys,double delta,double f,double l
         r0=mean(rs,Ns);
         x0=(dmax(xr,0,Ns)+dmin(xr,0,Ns))/2;
         y0=(dmax(yr,0,Ns)+dmin(yr,0,Ns))/2;
+        x0 = 0;
+        y0 = 0;
 //         y0=mean(yr,Ns);
 //         pol2cart1(th0,r0,x0,y0);
 //          std::cout << std::fixed <<xr[0]<< '\t' << yr[0]<<  '\n';

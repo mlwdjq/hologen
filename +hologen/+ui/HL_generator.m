@@ -237,6 +237,8 @@ classdef HL_generator < mic.Base
             hologram = this.uipHologram.getSelectedIndex();
             
             th = this.dTh; % threshold for generating hololens
+            reGen = 0;
+            if reGen ~= 1
             tic
             fprintf('Initialing coordinates...\n');
             ceout=cell(Mx,My);
@@ -308,16 +310,7 @@ classdef HL_generator < mic.Base
                     this.stShapes(end+1)=Ixy(t);
                 end
             end
-            
-            lambda=lambda*db;
-            printResolution = printResolution*db;
-            delta=delta*db;
-            f=f*db;
-            % R=R*db;
-            xOffset = xOffset*db;
-            yOffset = yOffset*db;
-            subR=subR*db;
-            Rb=obscuration*db;
+                      
 %             for t=length(this.stShapes):-1:1
 %                 if ~all((this.stShapes(t).xr-xOffset).^2+(this.stShapes(t).yr-yOffset).^2>Rb.^2&...
 %                         (this.stShapes(t).xr-xOffset).^2+(this.stShapes(t).yr-yOffset).^2<=(subR).^2)
@@ -325,16 +318,31 @@ classdef HL_generator < mic.Base
 %                 end
 %             end
             fprintf('Processing coordinates took %0.1f\n',toc);
+            end
             fprintf('Generating ploygons... \n');
             tic,
+            lambda=lambda*db;
+            printResolution = printResolution*db;
+            delta=delta*db;
+            f=f*db;
+            xOffset = xOffset*db;
+            yOffset = yOffset*db;
+            subR=subR*db;
+            Rb=obscuration*db;
             len=length(this.stShapes);
             parfor_progress(len);
             for q=1:len
                 parfor_progress;
+%                 if q~=200
+%                     continue;
+%                 end
                 cxy=[this.stShapes(q).xr,this.stShapes(q).yr];
+%                 if q==300
+%                 figure(2),plot(cxy(:,1),cxy(:,2),'.'),hold on;drawnow;
+%                 end
                 cxy=unique(cxy,'rows');
                 cn=length(cxy);
-                k=k+1;
+%                 k=k+1;
                 cx=cxy(:,1);
                 cy=cxy(:,2);
                 %     if q~=70
@@ -346,12 +354,16 @@ classdef HL_generator < mic.Base
                     case 2
                         B=hologen.utils.CgetBoundariesFromLabelLSI(cx,cy,cn,delta,f,lambda,th,incidentAngle,CoordsAccuCtrl);
                 end
-                Bs = B;
-%                 Bs=hologen.utils.CdownSamplingUsingRealCoords(B,lambda,delta,f,DownSamplingAccuCtrl);
+%                 Bs = B;
+% for si=1:length(B)
+%     figure(2),plot(B{si}(:,1),B{si}(:,2),'-');hold on;pause(0.5);
+%     
+% end
+                 Bs=hologen.utils.CdownSamplingUsingRealCoords(B,lambda,delta,f,DownSamplingAccuCtrl);
                 
                 for si=length(Bs):-1:1
                     
-                    while 0 % remove glitch
+                    while 1 % remove glitch
                         num=length(Bs{si});
                         angle=zeros(num,1);
                         for js=1:num

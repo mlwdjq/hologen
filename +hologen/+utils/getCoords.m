@@ -22,7 +22,7 @@ Ry(2)=Ry+dy;
 rs=sqrt(r*R);
 xs=rs.*cos(TH);
 ys=rs.*sin(TH);
-if all((xs-xOffset).^2+(ys-yOffset).^2>subR^2)
+if all((xs-xOffset).^2+(ys-yOffset).^2>subR^2)%|(xs-xOffset).^2+(ys-yOffset).^2<(0.99*subR)^2|xs>0)
     stout =[];
     return;
 end

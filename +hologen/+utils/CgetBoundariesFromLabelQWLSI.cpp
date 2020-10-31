@@ -308,8 +308,40 @@ void getAccurateCoords(double *xr,double *yr,double *ths,double *rs,double x0,do
     free(yr0);
 }
 
-
 void sortCoods(double *xr,double *yr,double *ths,double *rs,long Ns){
+    double thmin,thmax,*Sths,*Srs,temp;
+    double x0 = 0;
+    double y0 = 0;
+    thmin=dmin(ths,0,Ns);
+    thmax=dmax(ths,0,Ns);
+    
+    Sths= (double*) malloc(Ns * sizeof(double));
+    Srs= (double*) malloc(Ns * sizeof(double));
+    
+    pol2cart1((thmax+thmin)/2,(dmax(rs,0,Ns)+dmin(rs,0,Ns))/2,x0,y0);
+    for(long i=0;i<Ns;i++){
+        Sths[i]=atan2(yr[i]-y0,xr[i]-x0);
+    }
+    for(long i=0;i<Ns-1;i++){
+        for(long j=0;j<Ns-1-i;j++){
+            if(Sths[j]>Sths[j+1]){
+                temp=Sths[j];
+                Sths[j]=Sths[j+1];
+                Sths[j+1]=temp;
+                temp=xr[j];
+                xr[j]=xr[j+1];
+                xr[j+1]=temp;
+                temp=yr[j];
+                yr[j]=yr[j+1];
+                yr[j+1]=temp;
+            }
+        }
+    }
+    free(Sths);
+    free(Srs);
+}
+
+void sortCoods_old(double *xr,double *yr,double *ths,double *rs,long Ns){
     double thmin,thmax,rmin,rmax,ravg,*Sths,*Srs,sides,savgN=0,savgP=0;
     long *Imin,*Imax,k=0,dk=Ns-1,NI;
     thmin=dmin(ths,0,Ns);
@@ -434,7 +466,7 @@ void getBoundariesFromLabel(double *xs,double *ys,double delta,double f,double l
     ym= (double*) malloc(sm * sizeof(double));
     thm= (double*) malloc(sm * sizeof(double));
     rm= (double*) malloc(sm * sizeof(double));
-    long Ns, Index=0,*Indexm,*Im,Nm,Ns0,countm;
+    long Ns, Index=0,*Indexm,*Im,Nm,Ns0,countm,divN = 1;
     int SubN,angM,direc;
     nB=0;
     pB[0]=0;
@@ -476,9 +508,7 @@ void getBoundariesFromLabel(double *xs,double *ys,double delta,double f,double l
 //         pol2cart1(th0,r0,x0,y0);
 //          std::cout << std::fixed <<xr[0]<< '\t' << yr[0]<<  '\n';
         getAccurateCoords(xr,yr,ths,rs,x0,y0,delta,f,lambda,th,incidentAngle,CoordsAccuCtrl,Ns);
-//         if (i==2)
-//              for(int j=0;j<Ns;j++){
-//              std::cout << std::fixed <<Ns<< '\n';
+
         if(Ns<3)
             continue;
         cart2polCir(xr,yr,ths,rs,Ns,tr,angM);
@@ -527,8 +557,8 @@ void getBoundariesFromLabel(double *xs,double *ys,double delta,double f,double l
             div=T/5;
         else
             div=T/10;
-        if (div>(dmax(rs,0,Ns)-dmin(rs,0,Ns))*5)
-            div=(dmax(rs,0,Ns)-dmin(rs,0,Ns))*5;
+        if (div>(dmax(rs,0,Ns)-dmin(rs,0,Ns))*1)
+            div=(dmax(rs,0,Ns)-dmin(rs,0,Ns))*1;
         
         if (div>3*r0*PI/180)
             div=3*r0*PI/180;
@@ -563,8 +593,22 @@ void getBoundariesFromLabel(double *xs,double *ys,double delta,double f,double l
                         }
                     }
                     
+                    // limit length-width ratio
+                    
+                    cart2polStd(xm,ym,thm,rm,countm);
+//                     mexPrintf("index %0.5f\t %0.5f\n",divN*div,10*(dmax(rm,0,countm)-dmin(rm,0,countm)));
+                    if (divN*div<(dmax(rm,0,countm)-dmin(rm,0,countm))*10&&j!=(SubN-1)){
+                        divN++;
+                        continue;
+                    }
+                    else{
+                        divN = 1; 
+                    }
+                    
                     if(countm<5&&j!=(SubN-1)||countm<3)
                         continue;
+                    
+                    
                     for(int p=0;p<Ns;p++){
                         if (ths[p]<=flag){
                             xr[p]=NULL;
@@ -594,9 +638,19 @@ void getBoundariesFromLabel(double *xs,double *ys,double delta,double f,double l
                             }
                         }
                     }
+                    //limit length-width ratio
+                    cart2polStd(xm,ym,thm,rm,countm);
+                    if (divN*div<(dmax(rm,0,countm)-dmin(rm,0,countm))*10&&j!=(SubN-1)){
+                        divN++;
+                        continue;
+                    }
+                    else{
+                        divN = 1; 
+                    }
                     
                     if(countm<5&&j!=(SubN-1)||countm<3)
                         continue;
+                    
                     for(int p=0;p<Ns;p++){
                         if (ths[p]>=flag){
                             xr[p]=NULL;
@@ -605,6 +659,10 @@ void getBoundariesFromLabel(double *xs,double *ys,double delta,double f,double l
                         }
                     }
                 }
+//                 if (j<2){
+//                 mexPrintf("ym %0.5f\t %d\n",dmax(ym,0,countm),countm);
+//                 mexPrintf("ym %0.5f\t %d\n",dmin(ym,0,countm),countm);
+//                 }
                 
                 Ns0=removeNULL(xr,Ns);
                 Ns0=removeNULL(yr,Ns);
@@ -729,7 +787,10 @@ void getBoundariesFromLabel(double *xs,double *ys,double delta,double f,double l
                 for(int k=0;k<countm;k++){
                     B[pB[nB]+k]=xm[k];
                     B[pB[nB]+k+countm]=ym[k];
+
+//                  if (xm[k]==0){
                 }
+                
                 pB[nB+1]=pB[nB]+2*countm;
                 nB++;
                 

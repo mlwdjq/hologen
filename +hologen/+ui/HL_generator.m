@@ -87,7 +87,7 @@ classdef HL_generator < mic.Base
             this.uieLambda.set(13.5);
             this.uieT.set(540);
             this.uieFocalLength.set(3);
-            this.uieNA.set(0.0875);
+            this.uieNA.set(0.0825);
             this.uieOffsetAngle.set(6);
             this.uieObscuration.set(0);
             this.uieMinFeature.set(1);
@@ -163,6 +163,7 @@ classdef HL_generator < mic.Base
             T_um = this.uieT.get(); % grating pitch
             f_um = this.uieFocalLength.get()*1e3; % lens focal length
             lambda_um = this.uieLambda.get()*1e-3; % wavelength
+            obscuration_um = this.uieObscuration.get()*1000; % central obscuration
             NA = this.uieNA.get();
             offset = eval(this.uieOffset.get())*1e3;
             xOffset = offset(1);
@@ -173,7 +174,7 @@ classdef HL_generator < mic.Base
             this.y_um = linspace(-subR_um,subR_um,N);
             [xp,yp] = meshgrid(this.x_um,this.y_um);
             pupil = zeros(N);
-            pupil(xp.^2+yp.^2<= subR_um.^2) = 1;
+            pupil(xp.^2+yp.^2<= subR_um.^2&xp.^2+yp.^2>= obscuration_um^2) = 1;
             xp = xp + xOffset;
             yp = yp + yOffset;
             this.x_um = this.x_um + xOffset;

@@ -573,7 +573,7 @@ void getBoundariesFromLabel(double *xs,double *ys,double delta,double f,double l
                 if(direc==1){
                     flag=thmin+(thmax-thmin)*(j+1)/((double)SubN);
 //              use triangle for ending shapes
-                    if(j==(SubN-1)&&cth==0&&cr==0){
+                    if(j==(SubN-1)&&cth==0&&cr==0&&divN==1){
                         Im=dfind(ths,Ns,dmax(ths,0,Ns),Nm);
                         xm[0] = xr[Im[0]];
                         ym[0] = yr[Im[0]];
@@ -596,7 +596,7 @@ void getBoundariesFromLabel(double *xs,double *ys,double delta,double f,double l
                     // limit length-width ratio
                     
                     cart2polStd(xm,ym,thm,rm,countm);
-//                     mexPrintf("index %0.5f\t %0.5f\n",divN*div,10*(dmax(rm,0,countm)-dmin(rm,0,countm)));
+//                      mexPrintf("index %0.5f\t %0.5f\n",divN*div,10*(dmax(rm,0,countm)-dmin(rm,0,countm)));
                     if (divN*div<(dmax(rm,0,countm)-dmin(rm,0,countm))*10&&j!=(SubN-1)){
                         divN++;
                         continue;

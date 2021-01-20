@@ -22,6 +22,10 @@ Ry(2)=Ry+dy;
 rs=sqrt(r*R);
 xs=rs.*cos(TH);
 ys=rs.*sin(TH);
+xs=xs(:);
+ys=ys(:);
+xs(end+1)=mean(xs);
+ys(end+1)=mean(ys);
 if all((xs-xOffset).^2+(ys-yOffset).^2>subR^2)%|(xs-xOffset).^2+(ys-yOffset).^2<(0.99*subR)^2|xs>0)
     stout =[];
     return;

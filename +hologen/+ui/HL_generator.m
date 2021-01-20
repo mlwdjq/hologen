@@ -154,7 +154,11 @@ classdef HL_generator < mic.Base
                     datalist = this.uilFileList.getOptions();
                     value = this.uilFileList.getSelectedIndexes();
                     filename= fullfile(cDataDir,datalist{value});
-                    winopen(filename);
+                    try
+                        winopen(filename);
+                    catch
+                        system(['open ', filename]);
+                    end
             end
         end
         

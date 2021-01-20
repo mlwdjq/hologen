@@ -619,7 +619,7 @@ void getBoundariesFromLabel(double *xs,double *ys,double delta,double f,double l
                 }
                 else{
                     flag=thmax-(thmax-thmin)*(j+1)/((double)SubN);
-                    if(j==(SubN-1)&&cth==0&&cr==0){
+                    if(j==(SubN-1)&&cth==0&&cr==0&&divN==1){
                         Im=dfind(ths,Ns,dmin(ths,0,Ns),Nm);
                         xm[0] = xr[Im[0]];
                         ym[0] = yr[Im[0]];

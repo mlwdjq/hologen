@@ -500,8 +500,8 @@ void getBoundariesFromLabel(double *xs,double *ys,double delta,double f,double l
         
         th0=mean(ths,Ns);
         r0=mean(rs,Ns);
-        x0=(dmax(xr,0,Ns)+dmin(xr,0,Ns))/2;
-        y0=(dmax(yr,0,Ns)+dmin(yr,0,Ns))/2;
+//         x0=(dmax(xr,0,Ns)+dmin(xr,0,Ns))/2;
+//         y0=(dmax(yr,0,Ns)+dmin(yr,0,Ns))/2;
         x0 = 0;
         y0 = 0;
 //         y0=mean(yr,Ns);

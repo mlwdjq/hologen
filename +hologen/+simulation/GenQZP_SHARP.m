@@ -10,7 +10,7 @@ hl.uieNA.set(0.0825);
 hl.uieOffsetAngle.set(6);
 hl.uieObscuration.set(0);
 hl.uieMinFeature.set(1);
-hl.uieOffset.set('[0.05255, 0]');
+hl.uieOffset.set('[0, 0.05255]');
 hl.uieShift.set('[0, 0]');
 hl.uipHologram.setSelectedIndex(uint8(1));% QWLSI
 hl.cb(hl.uipHologram);

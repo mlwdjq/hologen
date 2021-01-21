@@ -26,7 +26,7 @@ hl.uieFilePath.set(savePath);
 T_um = [810,540,270,180,135,108,81,54,40.5,27,16.2,10.8,8.1];
 for i = 1:length(T_um)
     hl.uieT.set(T_um(i));
-    hl.uieFileName.set(['offAxis_13.5nm_0.0825_',num2str(T_um(i)),'um_1D']);
+    hl.uieFileName.set(['onAxis_13.5nm_0.0825_',num2str(T_um(i)),'um_1D']);
     
     %% simulate pattern
     hl.cb(hl.uibGenPattern);

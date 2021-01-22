@@ -312,7 +312,11 @@ classdef HL_generator < mic.Base
                 end
                 temp3=find(uxy(:,4)==t);
                 if isempty(temp3)
-                    this.stShapes(end+1)=Ixy(t);
+                    try
+                        this.stShapes(end+1)=Ixy(t);
+                    catch
+                        this.stShapes=Ixy(t);
+                    end
                 end
             end
                       

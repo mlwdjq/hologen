@@ -564,7 +564,7 @@ void getBoundariesFromLabel(double *xs,double *ys,double delta,double f,double l
             div=3*r0*PI/180;
 //         std::cout << std::fixed <<l<<'\t'<<div<< '\n';
         
-        if (l>div){
+        if (l>div&&Ns!=3){
             SubN=ceil(l/div);
 //             mexPrintf("index %d\n",SubN);
             for(int j=0;j<SubN;j++){
